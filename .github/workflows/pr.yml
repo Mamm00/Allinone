@@ -101,16 +101,33 @@ jobs:
             exit 1
           fi
           echo "PASS: network APK declares INTERNET"
-      - name: APK size gate (<25MB target, <30MB hard)
+      - name: Assemble release APKs (for size gate)
         run: |
-          for APK in $(find app/build/outputs/apk -name "*.apk"); do
+          ./gradlew :app:assembleOfflineRelease :app:assembleNetworkRelease --stacktrace 2>&1 | tee /tmp/rel.log
+          STATUS=${PIPESTATUS[0]}
+          if [ $STATUS -ne 0 ]; then
+            grep -E "FAILED|error:|e: |What went wrong|Could not|Unresolved|Execution failed" /tmp/rel.log | head -80 | while IFS= read -r line; do echo "::error::$line"; done
+            awk '/What went wrong/{flag=1} flag{print; count++} count>60{exit}' /tmp/rel.log | while IFS= read -r line; do echo "::error::$line"; done
+            tail -80 /tmp/rel.log | while IFS= read -r line; do echo "::error::$line"; done
+            exit $STATUS
+          fi
+      - name: APK size gate (<25MB target, <30MB hard, release only)
+        run: |
+          FAILED=0
+          for APK in $(find app/build/outputs/apk -path "*release*" -name "*.apk"); do
             SIZE=$(stat -c%s "$APK")
-            echo "$APK: $SIZE bytes"
+            echo "::error::$APK: $SIZE bytes"
             if [ "$SIZE" -gt 31457280 ]; then
-              echo "FAIL: $APK exceeds 30MB hard limit"
-              exit 1
+              echo "::error::FAIL: $APK exceeds 30MB hard limit"
+              FAILED=1
             fi
             if [ "$SIZE" -gt 26214400 ]; then
-              echo "WARN: $APK exceeds 25MB target"
+              echo "::error::WARN: $APK exceeds 25MB target"
             fi
           done
+          echo "=== DEBUG SIZES (info only) ==="
+          for APK in $(find app/build/outputs/apk -path "*debug*" -name "*.apk"); do
+            SIZE=$(stat -c%s "$APK")
+            echo "::error::DEBUG $APK: $SIZE bytes"
+          done
+          exit $FAILED
