@@ -56,6 +56,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onWorkspace
         }
         Spacer(modifier = Modifier.height(12.dp))
 
+        state.errorMessage?.let {Text(it,color=MaterialTheme.colorScheme.error)}
         OutlinedTextField(query,{query=it},singleLine=true,label={Text(stringResource(R.string.search_preferences))},modifier=Modifier.fillMaxWidth())
         if(matchesPreference(stringResource(R.string.pref_appearance)+stringResource(R.string.pref_backup)+stringResource(R.string.pref_feed)+stringResource(R.string.pref_glass)+stringResource(R.string.pref_gestures)+stringResource(R.string.pref_dock)+stringResource(R.string.pref_grid),query))
             OutlinedButton(onWorkspacePreferences) {Text("Home layout, widgets, gestures, theme, feed and backup preferences")}
@@ -146,7 +147,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onWorkspace
         if (state.whitelistedPackages.isEmpty()) {
             Text(stringResource(R.string.whitelist_empty))
         }
-        state.installedApps.take(30).forEach { app ->
+        state.installedApps.forEach { app ->
             Row(modifier = Modifier.fillMaxWidth()) {
                 Checkbox(
                     checked = state.whitelistedPackages.contains(app.packageName),
@@ -164,21 +165,13 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onWorkspace
             text = stringResource(R.string.floating_pill_title),
             style = MaterialTheme.typography.titleLarge
         )
-        Text(stringResource(R.string.floating_pill_desc))
+        Text("The floating overlay service is not available in this version. No overlay permission is requested.")
         Row(modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.floating_pill_title), modifier = Modifier.weight(1f))
             Switch(
                 checked = state.floatingPillEnabled,
                 onCheckedChange = { viewModel.setFloatingPillEnabled(it) }
             )
-        }
-        Button(
-            onClick = {
-                context.startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, android.net.Uri.parse("package:${context.packageName}")))
-            },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text(stringResource(R.string.floating_pill_enable))
         }
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))

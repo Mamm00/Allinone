@@ -76,7 +76,7 @@ fun LauncherScreen(
         state.errorMessage?.let { snackbar.showSnackbar(it); viewModel.clearError() }
     }
     Surface(color = MaterialTheme.colorScheme.background, modifier = Modifier.fillMaxSize()) {
-        Box(Modifier.fillMaxSize().systemBarsPadding().imePadding()) {
+        Box(Modifier.fillMaxSize().imePadding()) {
             DrawerContent(state, viewModel::onSearchQueryChange, viewModel::selectCategory,
                 onLaunch = { app ->
                     if (app.isSuspended || app.isArchived) {

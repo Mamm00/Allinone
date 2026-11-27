@@ -54,7 +54,8 @@ class GlassView(context: Context) : View(context) {
         super.onDraw(canvas)
         val source=fallback ?: bitmap
         if(source!=null) canvas.drawBitmap(source,null,Rect(0,0,width,height),paint)
-        else canvas.drawColor(Color.rgb(61,81,94))
-        canvas.drawColor(Color.argb((overlay*255).toInt(),0,0,0))
+        else canvas.drawColor(Color.WHITE)
+        // White frost keeps dark text readable even over an almost-black wallpaper.
+        canvas.drawColor(Color.argb(((.88f + overlay*.1f)*255).toInt(),255,255,255))
     }
 }

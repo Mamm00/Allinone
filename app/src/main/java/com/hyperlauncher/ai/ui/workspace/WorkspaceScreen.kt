@@ -67,7 +67,7 @@ import kotlin.math.roundToInt
 
 @Composable
 fun WorkspaceScreen(model: WorkspaceViewModel, apps: List<AppInfo>, onDrawer: () -> Unit,
-                    onSettings: () -> Unit, onLaunch: (String) -> Unit,preferencesRequest: Int=0) {
+                    onSettings: () -> Unit, onLaunch: (String) -> Unit,preferencesRequest: Int=0,onPreferencesConsumed: ()->Unit={}) {
     val context = LocalContext.current
     val config = LocalConfiguration.current
     val adaptive=rememberAdaptiveSetup()
@@ -77,10 +77,10 @@ fun WorkspaceScreen(model: WorkspaceViewModel, apps: List<AppInfo>, onDrawer: ()
     val loaded by model.loadedSetup.collectAsState()
     var layout by remember(setup) { mutableStateOf(WorkspaceLayout()) }
     LaunchedEffect(stored, setup, loaded) { layout = if (loaded == setup) stored else WorkspaceLayout() }
-    fun save(value: WorkspaceLayout) { layout = value; model.save(value) }
+    fun save(value: WorkspaceLayout) { if(loaded==setup) {layout=value;model.save(value)} }
     var edit by rememberSaveable { mutableStateOf(false) }
     var preferences by remember { mutableStateOf(false) }
-    LaunchedEffect(preferencesRequest) {if(preferencesRequest>0) preferences=true}
+    LaunchedEffect(preferencesRequest) {if(preferencesRequest>0) {preferences=true;onPreferencesConsumed()}}
     var widgetTarget by rememberSaveable { mutableStateOf<String?>(null) }
     var picking by rememberSaveable { mutableStateOf(false) }
     var pin by remember { mutableStateOf(false) }
@@ -175,7 +175,8 @@ fun WorkspaceScreen(model: WorkspaceViewModel, apps: List<AppInfo>, onDrawer: ()
     }
     BackHandler(searching || feeding || edit) {searching=false;feeding=false;edit=false}
     Surface(Modifier.fillMaxSize().padding(adaptive.safePane), color = MaterialTheme.colorScheme.background) {
-        if(feeding && BuildConfig.ENABLE_FEED) FeedScreen((context.applicationContext as HyperLauncherApp).container.database.feedDao(),onClose={feeding=false})
+        if(loaded!=setup) Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center) {CircularProgressIndicator()}
+        else if(feeding && BuildConfig.ENABLE_FEED) FeedScreen((context.applicationContext as HyperLauncherApp).container.database.feedDao(),onClose={feeding=false})
         else if (searching) Column(Modifier.fillMaxSize().systemBarsPadding()) {
             Box(Modifier.weight(1f)) { SmartSearchPanel(apps,
                 layout.options["provider"] ?: "https://duckduckgo.com/?q={query}",

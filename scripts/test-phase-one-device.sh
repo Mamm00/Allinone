@@ -9,6 +9,17 @@ else
   find app/build/outputs/androidTest-results -name '*.xml' -exec cat {} \; 2>/dev/null | head -200 | while IFS= read -r line; do echo "::error::$line"; done
   exit 1
 fi
+# The app must stay white even when Android requests a dark configuration.
+adb shell cmd uimode night yes
+if ./gradlew :app:connectedOfflineDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.hyperlauncher.ai.WhiteThemeUiTest --stacktrace >> /tmp/phase-one-device.log 2>&1; then
+  echo '::notice::White home/settings/drawer/vault and HOME/recreation regression passed in system dark mode.'
+else
+  tail -100 /tmp/phase-one-device.log
+  adb shell cmd uimode night no
+  exit 1
+fi
+adb shell cmd uimode night no
+
 # Connected tests may uninstall their target APK during teardown. Reinstall before
 # testing the actual launcher activity rather than mistaking teardown for a crash.
 adb install -r app/build/outputs/apk/offline/debug/app-offline-debug.apk
