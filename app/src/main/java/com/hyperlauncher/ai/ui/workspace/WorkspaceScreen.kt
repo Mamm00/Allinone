@@ -137,9 +137,11 @@ fun WorkspacePage(layout: WorkspaceLayout, page: Int, edit: Boolean, host: AppWi
                   apps: List<AppInfo>, onChange: (Placement) -> Unit, onRemove: (Placement) -> Unit,
                   onStack: (Placement) -> Unit, onLaunch: (String) -> Unit) {
     BoxWithConstraints(Modifier.fillMaxSize().testTag("workspace_page")) {
+        val pageWidth = maxWidth
+        val pageHeight = maxHeight
         val density = LocalDensity.current
-        val widthPx = with(density) { maxWidth.toPx() }
-        val heightPx = with(density) { maxHeight.toPx() }
+        val widthPx = with(density) { pageWidth.toPx() }
+        val heightPx = with(density) { pageHeight.toPx() }
         if (layout.items.none { it.page == page }) Text("Your space. Tap Edit to add apps or widgets.",
             Modifier.align(Alignment.Center).padding(24.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
         layout.items.filter { it.page == page }.forEach { item -> key(item.id) {
@@ -151,7 +153,7 @@ fun WorkspacePage(layout: WorkspaceLayout, page: Int, edit: Boolean, host: AppWi
                 onChange(value.bounded())
             }
             Box(Modifier.offset { IntOffset((position.x*widthPx).roundToInt(), (position.y*heightPx).roundToInt()) }
-                .size(maxWidth*position.width, maxHeight*position.height)
+                .size(pageWidth*position.width, pageHeight*position.height)
                 .clip(RoundedCornerShape(20.dp)).background(MaterialTheme.colorScheme.surfaceVariant)
                 .testTag("placement_${item.id}")) {
                 when (item.kind) {
@@ -161,7 +163,7 @@ fun WorkspacePage(layout: WorkspaceLayout, page: Int, edit: Boolean, host: AppWi
                     }
                     else -> if (item.widgets.isNotEmpty()) {
                         val id = item.widgets[Math.floorMod(item.activeWidget, item.widgets.size)]
-                        key(id) { HostedWidget(host, id, (maxWidth*position.width).value.toInt(), (maxHeight*position.height).value.toInt()) }
+                        key(id) { HostedWidget(host, id, (pageWidth*position.width).value.toInt(), (pageHeight*position.height).value.toInt()) }
                     }
                 }
                 if (edit) Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.primary.copy(alpha=.08f))
