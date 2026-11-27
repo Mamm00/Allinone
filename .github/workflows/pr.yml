@@ -55,6 +55,8 @@ jobs:
             awk '/What went wrong/{flag=1} flag{print; count++} count>60{exit}' /tmp/test.log | while IFS= read -r line; do echo "::error::$line"; done
             echo "=== LAST 80 LINES ==="
             tail -80 /tmp/test.log | while IFS= read -r line; do echo "::error::$line"; done
+            echo "=== TEST XML REPORTS ==="
+            find app/build/test-results -name "*.xml" -exec cat {} \; 2>/dev/null | head -200 | while IFS= read -r line; do echo "::error::$line"; done
             exit $STATUS
           fi
       - name: Assemble offline debug
