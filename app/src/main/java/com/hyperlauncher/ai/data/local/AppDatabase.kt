@@ -16,11 +16,12 @@ import com.hyperlauncher.ai.data.local.entity.CategoryEntity
 import com.hyperlauncher.ai.data.local.entity.LlmCacheEntity
 
 @Database(
-    entities = [AppEntity::class, CategoryEntity::class, AiPromptLogEntity::class, LlmCacheEntity::class],
-    version = 2,
+    entities = [AppEntity::class, CategoryEntity::class, AiPromptLogEntity::class, LlmCacheEntity::class, WorkspaceEntity::class],
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
+    abstract fun workspaceDao(): WorkspaceDao
     abstract fun appDao(): AppDao
     abstract fun categoryDao(): CategoryDao
     abstract fun aiPromptLogDao(): AiPromptLogDao
@@ -37,6 +38,12 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS workspace_layouts (setupId TEXT NOT NULL PRIMARY KEY, layoutJson TEXT NOT NULL)")
+            }
+        }
+
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
@@ -47,7 +54,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "hyperlauncher.db"
                 )
-                    .addMigrations(MIGRATION_1_2)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
                     .build()
                 INSTANCE = instance
                 instance

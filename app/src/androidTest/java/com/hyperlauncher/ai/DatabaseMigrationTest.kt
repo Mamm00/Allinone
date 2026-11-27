@@ -28,7 +28,7 @@ class DatabaseMigrationTest {
             db.version = 1
         }
         val migrated = Room.databaseBuilder(context, AppDatabase::class.java, name)
-            .addMigrations(AppDatabase.MIGRATION_1_2).build()
+            .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3).build()
         try {
             val original = migrated.appDao().getByPackage("test.pkg")!!
             assertEquals(7, original.launchCount)

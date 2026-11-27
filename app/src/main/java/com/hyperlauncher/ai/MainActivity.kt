@@ -23,6 +23,8 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.hyperlauncher.ai.ui.ai.AiPromptBar
 import com.hyperlauncher.ai.ui.ai.AiPromptViewModel
+import com.hyperlauncher.ai.ui.workspace.WorkspaceScreen
+import com.hyperlauncher.ai.ui.workspace.WorkspaceViewModel
 import com.hyperlauncher.ai.ui.launcher.LauncherScreen
 import com.hyperlauncher.ai.ui.launcher.LauncherViewModel
 import com.hyperlauncher.ai.ui.settings.SettingsScreen
@@ -32,7 +34,7 @@ import com.hyperlauncher.ai.ui.vault.VaultScreen
 import com.hyperlauncher.ai.ui.vault.VaultViewModel
 import com.hyperlauncher.ai.util.PerformanceMonitor
 
-private enum class Destination { LAUNCHER, SETTINGS, VAULT }
+private enum class Destination { HOME, LAUNCHER, SETTINGS, VAULT }
 
 class MainActivity : ComponentActivity() {
 
@@ -52,7 +54,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             val drawerPreferences by container.settingsRepository.drawerPreferences.collectAsState(DrawerPreferences())
             HyperLauncherAITheme(ambient = drawerPreferences.ambient) {
-                var destination by rememberSaveable { mutableStateOf(Destination.LAUNCHER) }
+                var destination by rememberSaveable { mutableStateOf(Destination.HOME) }
 
                 val launcherViewModel: LauncherViewModel = viewModel(
                     factory = object : ViewModelProvider.Factory {
@@ -62,6 +64,13 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 )
+                val workspaceViewModel: WorkspaceViewModel = viewModel(factory = object : ViewModelProvider.Factory {
+                    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                        @Suppress("UNCHECKED_CAST")
+                        return WorkspaceViewModel(container.database.workspaceDao()) as T
+                    }
+                })
+                val launcherState by launcherViewModel.uiState.collectAsState()
                 val aiViewModel: AiPromptViewModel = viewModel(
                     factory = object : ViewModelProvider.Factory {
                         override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -99,8 +108,11 @@ class MainActivity : ComponentActivity() {
                     }
                 )
 
-                BackHandler(enabled = destination != Destination.LAUNCHER) { destination = Destination.LAUNCHER }
+                BackHandler(enabled = destination != Destination.HOME) { destination = Destination.HOME }
                 when (destination) {
+                    Destination.HOME -> WorkspaceScreen(workspaceViewModel, launcherState.allApps,
+                        onDrawer = { launcherViewModel.load(); destination = Destination.LAUNCHER },
+                        onSettings = { destination = Destination.SETTINGS }, onLaunch = launcherViewModel::onAppLaunched)
                     Destination.LAUNCHER -> {
                         LauncherScreen(
                             viewModel = launcherViewModel,
@@ -112,13 +124,13 @@ class MainActivity : ComponentActivity() {
                     Destination.SETTINGS -> {
                         SettingsScreen(
                             viewModel = settingsViewModel,
-                            onBack = { destination = Destination.LAUNCHER }
+                            onBack = { destination = Destination.HOME }
                         )
                     }
                     Destination.VAULT -> {
                         VaultScreen(
                             viewModel = vaultViewModel,
-                            onBack = { destination = Destination.LAUNCHER }
+                            onBack = { destination = Destination.HOME }
                         )
                     }
                 }
