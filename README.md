@@ -5,6 +5,20 @@ HyperOS 2 / Android 14 (API 34). Min SDK 28, target/compile SDK 34.
 
 **Offline by default. No telemetry. No background sync. No wake-locks. No polling.**
 
+## Visual concepts & creative ideas
+
+Explore [four app design concepts and proposed features](docs/DESIGN_IDEAS.md),
+covering the launcher home, categorized drawer, prompt-to-vault workflow, and
+creative assistant. These are **AI-generated mockups, not running-app screenshots**.
+
+| Launcher home | Categorized app drawer |
+|:---:|:---:|
+| <img src="docs/images/01-launcher-home.png" alt="Dark launcher home concept" width="280"> | <img src="docs/images/02-app-drawer-categories.png" alt="Categorized app drawer concept" width="280"> |
+
+| AI prompt & encrypted vault | Creative AI assistant |
+|:---:|:---:|
+| <img src="docs/images/03-ai-prompt-vault.png" alt="AI prompt and encrypted vault concept" width="280"> | <img src="docs/images/04-creative-ai.png" alt="Creative AI assistant concept" width="280"> |
+
 ## Flavors (one tree, two APKs)
 
 | Flavor | INTERNET permission | Network code | Use |
