@@ -2,12 +2,16 @@ package com.hyperlauncher.ai
 
 import android.os.Bundle
 import android.os.SystemClock
+import androidx.activity.compose.BackHandler
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.saveable.rememberSaveable
+import com.hyperlauncher.ai.data.local.DrawerPreferences
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -19,6 +23,8 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.hyperlauncher.ai.ui.ai.AiPromptBar
 import com.hyperlauncher.ai.ui.ai.AiPromptViewModel
+import com.hyperlauncher.ai.ui.workspace.WorkspaceScreen
+import com.hyperlauncher.ai.ui.workspace.WorkspaceViewModel
 import com.hyperlauncher.ai.ui.launcher.LauncherScreen
 import com.hyperlauncher.ai.ui.launcher.LauncherViewModel
 import com.hyperlauncher.ai.ui.settings.SettingsScreen
@@ -28,7 +34,7 @@ import com.hyperlauncher.ai.ui.vault.VaultScreen
 import com.hyperlauncher.ai.ui.vault.VaultViewModel
 import com.hyperlauncher.ai.util.PerformanceMonitor
 
-private enum class Destination { LAUNCHER, SETTINGS, VAULT }
+private enum class Destination { HOME, LAUNCHER, SETTINGS, VAULT }
 
 class MainActivity : ComponentActivity() {
 
@@ -45,18 +51,29 @@ class MainActivity : ComponentActivity() {
             android.util.Log.d("HyperLauncher", "Cold start: ${elapsed}ms")
         }
 
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window,false)
         setContent {
-            HyperLauncherAITheme {
-                var destination by remember { mutableStateOf(Destination.LAUNCHER) }
+            val appearance by container.settingsRepository.appearance.collectAsState(emptyMap())
+            val drawerPreferences by container.settingsRepository.drawerPreferences.collectAsState(DrawerPreferences())
+            HyperLauncherAITheme(ambient = drawerPreferences.ambient,appearance=appearance) {
+                var preferencesRequest by remember {mutableStateOf(0)}
+                var destination by rememberSaveable { mutableStateOf(Destination.HOME) }
 
                 val launcherViewModel: LauncherViewModel = viewModel(
                     factory = object : ViewModelProvider.Factory {
                         override fun <T : ViewModel> create(modelClass: Class<T>): T {
                             @Suppress("UNCHECKED_CAST")
-                            return LauncherViewModel(container.appRepository) as T
+                            return LauncherViewModel(container.appRepository, container.settingsRepository) as T
                         }
                     }
                 )
+                val workspaceViewModel: WorkspaceViewModel = viewModel(factory = object : ViewModelProvider.Factory {
+                    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                        @Suppress("UNCHECKED_CAST")
+                        return WorkspaceViewModel(container.database.workspaceDao()) as T
+                    }
+                })
+                val launcherState by launcherViewModel.uiState.collectAsState()
                 val aiViewModel: AiPromptViewModel = viewModel(
                     factory = object : ViewModelProvider.Factory {
                         override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -94,7 +111,11 @@ class MainActivity : ComponentActivity() {
                     }
                 )
 
+                BackHandler(enabled = destination != Destination.HOME) { destination = Destination.HOME }
                 when (destination) {
+                    Destination.HOME -> WorkspaceScreen(workspaceViewModel, launcherState.allApps,
+                        onDrawer = { launcherViewModel.load(); destination = Destination.LAUNCHER },
+                        onSettings = { destination = Destination.SETTINGS }, onLaunch = launcherViewModel::onAppLaunched,preferencesRequest=preferencesRequest)
                     Destination.LAUNCHER -> {
                         LauncherScreen(
                             viewModel = launcherViewModel,
@@ -102,32 +123,18 @@ class MainActivity : ComponentActivity() {
                             onOpenVault = { destination = Destination.VAULT },
                             aiPromptBar = { AiPromptBar(viewModel = aiViewModel) }
                         )
-                        // Navigation buttons overlay (top-right)
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopEnd) {
-                            androidx.compose.foundation.layout.Row {
-                                androidx.compose.material3.TextButton(
-                                    onClick = { destination = Destination.VAULT }
-                                ) {
-                                    androidx.compose.material3.Text("Vault")
-                                }
-                                androidx.compose.material3.TextButton(
-                                    onClick = { destination = Destination.SETTINGS }
-                                ) {
-                                    androidx.compose.material3.Text("Settings")
-                                }
-                            }
-                        }
                     }
                     Destination.SETTINGS -> {
                         SettingsScreen(
                             viewModel = settingsViewModel,
-                            onBack = { destination = Destination.LAUNCHER }
+                            onBack = { destination = Destination.HOME },
+                            onWorkspacePreferences={preferencesRequest++;destination=Destination.HOME}
                         )
                     }
                     Destination.VAULT -> {
                         VaultScreen(
                             viewModel = vaultViewModel,
-                            onBack = { destination = Destination.LAUNCHER }
+                            onBack = { destination = Destination.HOME }
                         )
                     }
                 }

@@ -18,3 +18,5 @@ keystore/
 *.jks
 *.keystore
 local.properties
+/release-apks/
+/baseline-release/

@@ -1,9 +1,9 @@
 # HyperLauncher AI
 
 Offline-first Android launcher for **Redmi 12 4G** (8GB / 256GB / Helio G88 / 90Hz FHD+),
-HyperOS 2 / Android 14 (API 34). Min SDK 28, target/compile SDK 34.
+HyperOS 2 / Android 14 (API 34). Min SDK 28, target SDK 34, compile SDK 37.
 
-**Offline by default. No telemetry. No background sync. No wake-locks. No polling.**
+**Offline-first. No telemetry. No network polling. Optional daily local backups use WorkManager.**
 
 ## Visual concepts & creative ideas
 
@@ -24,12 +24,14 @@ creative assistant. These are **AI-generated mockups, not running-app screenshot
 | Flavor | INTERNET permission | Network code | Use |
 |---|---|---|---|
 | `offline` (default) | **No** | Excluded at compile time | Fully offline launcher + vault + categorization |
-| `network` | Yes | OpenRouter Creative Layer only | Adds opt-in cloud AI via OpenRouter |
+| `network` | Yes | OpenRouter + explicit feed/weather refresh | User-initiated network features |
 
 The offline APK is verified in CI to declare **no** `INTERNET` permission.
-The network APK's only network path is a locked-down OkHttp client that
-resolves **only** `api.openrouter.ai` (DNS + interceptor firewall,
-certificate-pinned, cleartext disabled).
+The network edition uses separate explicit-purpose transports for OpenRouter,
+HTTPS feeds and Open-Meteo weather. No AI key is attached to feeds/weather.
+OpenRouter uses normal TLS; certificate pins are **not configured**. Disclosed
+Google Play font downloads are brokered by Play Services (also in the offline
+edition) only when you tap Download. Built-in fonts require no request.
 
 ## Features
 
@@ -46,12 +48,19 @@ certificate-pinned, cleartext disabled).
   disclosure before redirect to Accessibility Settings. Captures only
   whitelisted apps, only when vault is unlocked.
 - **OpenRouter Creative Layer** (network flavor): user-keyed, user-enabled,
-  `ConnectivityManager.setProcessDefaultNetwork(null)` at launch so only the
-  locked-down client can reach the network. Key never logged/committed.
+  separate client. Key never logged/committed.
 
-## Performance gates
+- **Launcher expansion:** editable/freeform home, widget stacks, paged dock, local
+  smart search, optional gestures, glass and built-in widgets, saved feed/weather,
+  adaptive display setups, previewed native/Nova XML import, private daily backups,
+  PIN-hidden apps, searchable preferences, fonts and icon packs.
 
-- APK < 25 MB (hard 30 MB) — enforced in CI.
+See [1.1.0 scope and privacy notes](docs/RELEASE_1.1.0.md) for supported formats,
+backup exclusions, network actions and honest verification boundaries.
+
+## Performance targets (profiling outstanding)
+
+- APK size is reported in CI without a hard limit (user-requested).
 - Cold start < 350 ms (hard 500 ms).
 - 60 fps drawer scroll with 120+ apps (LazyColumn, keyed items).
 - Idle RAM ≤ 80 MB.
@@ -76,12 +85,11 @@ Requires JDK 21 + Android SDK. All compilation runs in GitHub Actions CI
 by Git and removed from the runner after the job. Missing or invalid signing
 credentials fail the release; there is no unsigned fallback.
 
-Pushes to `main` build and publish the verified signing-fix release `v1.0.1`.
-Version tags publish releases under their tag name;
-**Actions → Release → Run workflow** publishes the signing-fix release `v1.0.1`.
-Before distribution, both APKs must pass `apksigner` verification against the
-keystore certificate, alignment, permission and size checks, and installation
-on an Android 14 emulator. This is not physical Redmi or app-runtime validation.
+Pushes to `main` and manual Release runs publish version **v1.1.0**; version tags
+use their tag name. Both APKs must pass signature checks against the original
+v1.0.1 signing identity, alignment/permission checks, upgrade installation and
+signed HOME/launch/recreation on an Android 14 emulator. This is not physical Redmi
+QA or performance profiling. An APK ZIP and SHA256SUMS.txt are included.
 `OPENROUTER_API_KEY` is **never** a CI secret.
 
 The old `v1.0.0` files ending in `-unsigned.apk` are not installable. Download
@@ -91,7 +99,7 @@ future updates must use the same key.
 
 ## Setup (Redmi 12 4G)
 
-1. Install `HyperLauncherAI-offline-release.apk` (or `-network-` for AI).
+1. Install `HyperLauncherAI-offline-release.apk` (or `-network-` for AI/feed/weather).
 2. Set as default launcher: Settings → Apps → Default apps → Home app.
 3. Grant `QUERY_ALL_PACKAGES` (auto-granted for launchers; needed to list apps).
 4. (Optional) Enable Accessibility capture in HyperLauncher Settings →

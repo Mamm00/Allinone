@@ -36,7 +36,7 @@ class SettingsViewModel(
     }
 
     fun load() {
-        viewModelScope.launch {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             val enabled = settingsRepository.openRouterEnabled.first()
             val model = settingsRepository.openRouterModel.first()
             val a11y = settingsRepository.accessibilityCaptureEnabled.first()
@@ -56,38 +56,42 @@ class SettingsViewModel(
     }
 
     fun setOpenRouterEnabled(enabled: Boolean) {
-        viewModelScope.launch {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             settingsRepository.setOpenRouterEnabled(enabled)
             _uiState.value = _uiState.value.copy(openRouterEnabled = enabled)
         }
     }
 
     fun setOpenRouterModel(model: String) {
-        viewModelScope.launch {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             settingsRepository.setOpenRouterModel(model)
             _uiState.value = _uiState.value.copy(openRouterModel = model)
         }
     }
 
     fun saveApiKey(key: String) {
-        keyStoreManager.saveOpenRouterKey(key)
-        _uiState.value = _uiState.value.copy(hasApiKey = true)
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            keyStoreManager.saveOpenRouterKey(key)
+            _uiState.value = _uiState.value.copy(hasApiKey = true)
+        }
     }
 
     fun clearApiKey() {
-        keyStoreManager.clearOpenRouterKey()
-        _uiState.value = _uiState.value.copy(hasApiKey = false)
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            keyStoreManager.clearOpenRouterKey()
+            _uiState.value = _uiState.value.copy(hasApiKey = false)
+        }
     }
 
     fun setAccessibilityEnabled(enabled: Boolean) {
-        viewModelScope.launch {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             settingsRepository.setAccessibilityEnabled(enabled)
             _uiState.value = _uiState.value.copy(accessibilityEnabled = enabled)
         }
     }
 
     fun toggleWhitelist(pkg: String) {
-        viewModelScope.launch {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             val current = _uiState.value.whitelistedPackages
             val updated = if (current.contains(pkg)) current - pkg else current + pkg
             settingsRepository.setWhitelistedPackages(updated)
@@ -96,7 +100,7 @@ class SettingsViewModel(
     }
 
     fun setFloatingPillEnabled(enabled: Boolean) {
-        viewModelScope.launch {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             settingsRepository.setFloatingPillEnabled(enabled)
             _uiState.value = _uiState.value.copy(floatingPillEnabled = enabled)
         }

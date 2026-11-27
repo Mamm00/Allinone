@@ -2,93 +2,100 @@ package com.hyperlauncher.ai.ui.launcher
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.hyperlauncher.ai.data.local.DrawerPreferences
+import com.hyperlauncher.ai.data.local.SettingsRepository
 import com.hyperlauncher.ai.data.model.AppInfo
 import com.hyperlauncher.ai.data.model.Category
 import com.hyperlauncher.ai.data.repository.AppRepository
+import com.hyperlauncher.ai.notifications.NotificationBadges
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
+private data class DrawerSelection(val category: String = "all", val query: String = "")
 data class LauncherUiState(
     val apps: List<AppInfo> = emptyList(),
     val categories: List<Category> = emptyList(),
     val selectedCategoryId: String = "all",
     val searchQuery: String = "",
     val isLoading: Boolean = true,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val preferences: DrawerPreferences = DrawerPreferences(),
+    val badgeCounts: Map<String, Int> = emptyMap(),
+    val allApps: List<AppInfo> = emptyList(),
+    val hiddenApps: List<AppInfo> = emptyList()
 )
 
 class LauncherViewModel(
-    private val repository: AppRepository
+    private val repository: AppRepository,
+    private val settings: SettingsRepository,
+    filterDispatcher: CoroutineDispatcher = Dispatchers.Default
 ) : ViewModel() {
+    private val selection = MutableStateFlow(DrawerSelection())
+    private val loading = MutableStateFlow(true)
+    private val error = MutableStateFlow<String?>(null)
+    private var refreshJob: Job? = null
+    private val content = combine(repository.observeApps(), repository.observeCategories(),
+        settings.drawerPreferences, selection, settings.hiddenPackages) { apps, categories, preferences, selected, hidden ->
+        val effective = apps.map {
+            if (!preferences.autoCategorize && !it.hasManualCategory) it.copy(categoryId = "others") else it
+        }
+        LauncherUiState(
+            apps = filterDrawerApps(effective.filterNot {it.packageName in hidden}, selected.query, selected.category, preferences.alphabetical),
+            allApps = effective.filterNot {it.packageName in hidden}, hiddenApps = effective.filter {it.packageName in hidden}, categories = categories, selectedCategoryId = selected.category,
+            searchQuery = selected.query, preferences = preferences
+        )
+    }.flowOn(filterDispatcher)
 
-    private val _uiState = MutableStateFlow(LauncherUiState())
-    val uiState: StateFlow<LauncherUiState> = _uiState.asStateFlow()
+    val uiState = combine(content, loading, error, NotificationBadges.counts) { state, busy, message, counts ->
+        state.copy(isLoading = busy, errorMessage = message,
+            badgeCounts = if (state.preferences.badges) counts else emptyMap())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), LauncherUiState())
 
-    private var searchJob: Job? = null
-
-    init {
-        load()
-    }
+    init { load() }
 
     fun load() {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+        if (refreshJob?.isActive == true) return
+        refreshJob = viewModelScope.launch {
             try {
-                val categories = repository.getCategories()
-                val apps = repository.getApps()
-                _uiState.value = _uiState.value.copy(
-                    apps = apps,
-                    categories = categories,
-                    isLoading = false
-                )
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    isLoading = false,
-                    errorMessage = e.message ?: "Failed to load apps"
-                )
-            }
+                repository.getCategories()
+                repository.refreshInstalledApps()
+            } catch (cancelled: CancellationException) { throw cancelled }
+            catch (exception: Exception) { error.value = exception.message ?: "Unable to refresh apps" }
+            finally { loading.value = false }
         }
     }
 
-    fun selectCategory(categoryId: String) {
+    fun selectCategory(categoryId: String) { selection.value = selection.value.copy(category = categoryId) }
+    fun onSearchQueryChange(query: String) { selection.value = selection.value.copy(query = query) }
+    fun setOption(key: String, enabled: Boolean) = action { settings.setDrawerOption(key, enabled) }
+    fun changeCategory(packageName: String, categoryId: String?, similar: Boolean) = action {
+        repository.changeCategory(packageName, categoryId, similar)
+    }
+    fun saveCategory(id: String?, name: String) = action {
+        if (id == null) repository.addCategory(name) else repository.renameCategory(id, name)
+    }
+    fun onAppLaunched(packageName: String) = action {
+        if (repository.launchApp(packageName)) repository.recordLaunch(packageName)
+        else error.value = "Android could not open this app. Check its system app settings."
+    }
+    val hiddenPinConfigured=settings.hiddenPinConfigured
+    suspend fun createPin(pin: String) = settings.createHiddenPin(pin)
+    suspend fun unlockHidden(pin: String): Boolean = settings.unlockHidden(pin)
+    fun hideApp(pkg: String,hidden: Boolean) = action {settings.setAppHidden(pkg,hidden)}
+    fun clearError() { error.value = null }
+    private fun action(block: suspend () -> Unit) {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(selectedCategoryId = categoryId, isLoading = true)
-            try {
-                val apps = repository.getAppsByCategory(categoryId)
-                _uiState.value = _uiState.value.copy(apps = apps, isLoading = false)
-            } catch (e: Exception) {
-                _uiState.value = _uiState.value.copy(isLoading = false, errorMessage = e.message)
-            }
+            try { block() }
+            catch (cancelled: CancellationException) { throw cancelled }
+            catch (exception: Exception) { error.value = exception.message ?: "Action failed" }
         }
-    }
-
-    fun onSearchQueryChange(query: String) {
-        _uiState.value = _uiState.value.copy(searchQuery = query)
-        searchJob?.cancel()
-        // Debounce <16ms target: 12ms debounce keeps typing responsive.
-        searchJob = viewModelScope.launch {
-            delay(12)
-            if (query.isBlank()) {
-                val apps = repository.getAppsByCategory(_uiState.value.selectedCategoryId)
-                _uiState.value = _uiState.value.copy(apps = apps)
-            } else {
-                val results = repository.searchApps(query)
-                _uiState.value = _uiState.value.copy(apps = results)
-            }
-        }
-    }
-
-    fun onAppLaunched(packageName: String) {
-        viewModelScope.launch {
-            repository.recordLaunch(packageName)
-        }
-    }
-
-    fun clearError() {
-        _uiState.value = _uiState.value.copy(errorMessage = null)
     }
 }

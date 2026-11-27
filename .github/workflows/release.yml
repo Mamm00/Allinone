@@ -45,33 +45,24 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Verify OpenRouter certificate pins (live TLS handshake)
+      - name: Retrieve original signed release for identity and upgrade checks
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          echo "Fetching api.openrouter.ai certificate chain..."
-          echo | openssl s_client -connect api.openrouter.ai:443 -servername api.openrouter.ai -showcerts 2>/dev/null > /tmp/or_tls.txt || true
-          if [ ! -s /tmp/or_tls.txt ]; then
-            echo "WARN: could not fetch live cert (network restricted). Pins must be verified manually before release."
-          else
-            echo "--- Cert subjects ---"
-            grep -E "subject=|issuer=" /tmp/or_tls.txt | head -20
-            echo "--- SPKI pins (base64) ---"
-            # Extract leaf + intermediates and compute SPKI pins
-            awk '/BEGIN CERTIFICATE/,/END CERTIFICATE/' /tmp/or_tls.txt > /tmp/certs.pem
-            if [ -s /tmp/certs.pem ]; then
-              csplit -s -f /tmp/cert- /tmp/certs.pem '/BEGIN CERTIFICATE/' '{*}' 2>/dev/null || true
-              for f in /tmp/cert-*; do
-                [ -s "$f" ] || continue
-                PIN=$(openssl x509 -in "$f" -pubkey -noout 2>/dev/null | openssl pkey -pubin -outform der 2>/dev/null | openssl dgst -sha256 -binary 2>/dev/null | openssl enc -base64 2>/dev/null | tr -d '\n')
-                if [ -n "$PIN" ]; then echo "sha256/$PIN"; fi
-              done
-            fi
-          fi
+          mkdir -p baseline-release
+          gh release download v1.0.1 --pattern 'HyperLauncherAI-*-release.apk' --dir baseline-release
+          export PATH="$ANDROID_HOME/build-tools/36.0.0:$PATH"
+          for flavor in offline network; do
+            report=$(apksigner verify --print-certs "baseline-release/HyperLauncherAI-$flavor-release.apk")
+            original=$(printf '%s\n' "$report" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
+            test "${original,,}" = "${EXPECTED_SIGNER_SHA256,,}" || { echo '::error::Signing key differs from v1.0.1; refusing incompatible update'; exit 1; }
+          done
 
       - name: Lint
         run: ./gradlew :app:lintOfflineRelease :app:lintNetworkRelease --stacktrace || ./gradlew :app:lint --stacktrace
 
       - name: Unit tests
-        run: ./gradlew :app:testOfflineDebugUnitTest :app:testNetworkDebugUnitTest --stacktrace
+        run: ./gradlew :app:testOfflineDebugUnitTest :app:testNetworkDebugUnitTest :feature-feed:test :feature-import:test --stacktrace
 
       - name: Build release APKs
         run: ./gradlew :app:assembleOfflineRelease :app:assembleNetworkRelease --stacktrace
@@ -85,19 +76,14 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Verify both signed APKs install on Android 14
+      - name: Verify signed upgrade, HOME and launch on Android 14
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 34
           arch: x86_64
           target: google_apis
           disable-animations: true
-          script: |
-            adb install --no-streaming release-apks/HyperLauncherAI-offline-release.apk
-            adb install --no-streaming release-apks/HyperLauncherAI-network-release.apk
-            adb shell pm path com.hyperlauncher.ai
-            adb shell pm path com.hyperlauncher.ai.network
-            echo "::notice::Both signed release APKs installed successfully on Android 14."
+          script: bash scripts/test-signed-release.sh
 
       - name: Upload verified signed APKs
         uses: actions/upload-artifact@v4
@@ -110,16 +96,28 @@ jobs:
         if: github.event_name == 'workflow_dispatch' || github.ref_type == 'tag' || github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'v1.0.1' }}
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'v1.1.0' }}
           target_commitish: ${{ github.sha }}
-          name: HyperLauncher AI ${{ github.ref_type == 'tag' && github.ref_name || 'v1.0.1' }}
+          name: HyperLauncher AI ${{ github.ref_type == 'tag' && github.ref_name || 'v1.1.0' }}
           body: |
-            Signed APKs fixing the invalid-package error in the unsigned v1.0.0 downloads.
-            Both APK signatures and signer identity verified with apksigner, alignment checked,
-            and both packages installed successfully on an Android 14 emulator before publication.
-            Physical Redmi testing and app runtime/performance validation remain outstanding.
-            The network flavor's OpenRouter certificate pins remain unconfigured; do not treat it as certificate-pinned.
-            Download an APK below, not the source-code ZIP. SHA256SUMS.txt provides file checksums.
+            Smart categorized drawer, editable home/widget stacks, paged dock, smart search,
+            optional gestures, wallpaper-sampled glass, explicit-refresh feed and weather,
+            adaptive display/orientation layouts, Nova XML/native backup preview,
+            PIN-hidden apps, searchable preferences, fonts and icon packs.
+
+            Both editions use the existing permanent signing identity. Signature, alignment,
+            permissions, v1.0.1 upgrade, HOME and launch/recreation checks run before publication.
+            Offline has no INTERNET permission. Network requests require explicit feature actions.
+            Google Play font downloads are separately disclosed, explicit brokered requests.
+
+            Limitations: Nova proprietary/binary backups are unsupported. Rebind Android widgets
+            and photo URI grants after restore; KWGT files require manual import. Hidden apps
+            are launcher filtering, not an Android app lock or encrypted vault. Glass samples
+            images selected/applied through this launcher, not arbitrary live-wallpaper pixels.
+            Physical Redmi/foldable/external-display QA and startup/frame/RAM profiling are
+            outstanding. OpenRouter certificate pinning is not configured (normal TLS applies).
+            See KNOWN_LIMITATIONS.md and docs/RELEASE_1.1.0.md for scope and remaining manual QA.
+            Download an APK or the APK ZIP, not GitHub's source ZIP. SHA256SUMS.txt covers both.
           draft: false
           prerelease: false
           fail_on_unmatched_files: true

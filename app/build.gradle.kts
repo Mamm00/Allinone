@@ -21,8 +21,11 @@ android {
         applicationId = "com.hyperlauncher.ai"
         minSdk = 28
         targetSdk = 34
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = 3
+        versionName = "1.1.0"
+        buildConfigField("boolean", "ENABLE_IMPORT", (providers.gradleProperty("enableImport").orNull ?: "true"))
+        buildConfigField("boolean", "ENABLE_FEED", (providers.gradleProperty("enableFeed").orNull ?: "true"))
+        buildConfigField("boolean", "ENABLE_GLASS", (providers.gradleProperty("enableGlass").orNull ?: "true"))
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -105,6 +108,11 @@ kotlin {
 }
 
 dependencies {
+    implementation(project(":feature-glass"))
+    implementation(project(":feature-feed"))
+    implementation(project(":feature-import"))
+    implementation("androidx.work:work-runtime-ktx:2.10.1")
+    implementation("androidx.window:window:1.4.0")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
@@ -135,5 +143,8 @@ dependencies {
     testImplementation(libs.mockito.core)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso)
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
     debugImplementation(libs.androidx.compose.ui.tooling)
 }

@@ -14,8 +14,7 @@
         "perplexity",
         "bard",
         "alexa",
-        "siri",
-        "ai"
+        "siri"
       ],
       "packages": [
         "com.google.android.apps.bard",
@@ -35,16 +34,12 @@
         "facebook",
         "instagram",
         "twitter",
-        "x",
-        "whatsapp",
-        "telegram",
         "snapchat",
         "tiktok",
         "linkedin",
         "discord",
         "reddit",
         "threads",
-        "signal",
         "viber",
         "wechat"
       ],
@@ -52,8 +47,6 @@
         "com.facebook.katana",
         "com.instagram.android",
         "com.twitter.android",
-        "com.whatsapp",
-        "org.telegram.messenger",
         "com.snapchat.android",
         "com.zhiliaoapp.musically",
         "com.linkedin.android",
@@ -64,7 +57,7 @@
     },
     {
       "id": "messaging",
-      "name": "Messaging",
+      "name": "Communication",
       "keywords": [
         "message",
         "sms",
@@ -75,14 +68,29 @@
         "meet",
         "zoom",
         "teams",
-        "skype"
+        "skype",
+        "phone",
+        "dialer",
+        "contacts",
+        "email",
+        "mail",
+        "whatsapp",
+        "telegram",
+        "signal"
       ],
       "packages": [
         "com.google.android.apps.messaging",
         "com.samsung.android.messaging",
         "com.microsoft.teams",
         "com.skype.raider",
-        "com.google.android.apps.tachyon"
+        "com.google.android.apps.tachyon",
+        "com.whatsapp",
+        "org.telegram.messenger",
+        "org.thoughtcrime.securesms",
+        "com.google.android.dialer",
+        "com.google.android.contacts",
+        "com.google.android.gm",
+        "com.microsoft.office.outlook"
       ]
     },
     {
@@ -194,8 +202,6 @@
         "notion",
         "todo",
         "calendar",
-        "clock",
-        "calculator",
         "files",
         "drive"
       ],
@@ -277,7 +283,7 @@
     },
     {
       "id": "tools",
-      "name": "Tools & Utilities",
+      "name": "Tools",
       "keywords": [
         "tool",
         "utility",
@@ -294,13 +300,56 @@
       "packages": [
         "com.google.android.apps.translate",
         "com.miui.filemanager",
-        "com.cleanmaster.mguard",
-        "com.google.android.apps.docs"
+        "com.cleanmaster.mguard"
+      ]
+    },
+    {
+      "id": "internet",
+      "name": "Internet",
+      "keywords": [
+        "browser",
+        "firefox",
+        "chrome",
+        "brave",
+        "opera",
+        "internet"
+      ],
+      "packages": [
+        "com.android.chrome",
+        "org.mozilla.firefox",
+        "com.brave.browser",
+        "com.opera.browser"
+      ]
+    },
+    {
+      "id": "utilities",
+      "name": "Utilities",
+      "keywords": [
+        "calculator",
+        "clock",
+        "flashlight",
+        "weather"
+      ],
+      "packages": [
+        "com.google.android.calculator",
+        "com.google.android.deskclock",
+        "com.android.deskclock"
+      ]
+    },
+    {
+      "id": "settings",
+      "name": "Settings",
+      "keywords": [
+        "settings"
+      ],
+      "packages": [
+        "com.android.settings",
+        "com.miui.securitycenter"
       ]
     },
     {
       "id": "others",
-      "name": "Others",
+      "name": "Unknown apps",
       "keywords": [],
       "packages": []
     }

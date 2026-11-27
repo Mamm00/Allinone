@@ -3,7 +3,10 @@ package com.hyperlauncher.ai
 import android.app.Application
 import com.hyperlauncher.ai.di.AppContainer
 
-class HyperLauncherApp : Application() {
+class HyperLauncherApp : Application(), androidx.work.Configuration.Provider {
+    override val workManagerConfiguration: androidx.work.Configuration
+        get() = androidx.work.Configuration.Builder().build()
+
     lateinit var container: AppContainer
         private set
 

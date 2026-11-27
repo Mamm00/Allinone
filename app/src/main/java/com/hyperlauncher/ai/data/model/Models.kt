@@ -6,7 +6,12 @@ data class AppInfo(
     val categoryId: String,
     val isSystem: Boolean = false,
     val launchCount: Int = 0,
-    val lastUsedAt: Long = 0L
+    val lastUsedAt: Long = 0L,
+    val inferredCategoryId: String = categoryId,
+    val hasManualCategory: Boolean = false,
+    val isSuspended: Boolean = false,
+    val isArchived: Boolean = false,
+    val iconPng: ByteArray? = null
 )
 
 data class Category(
