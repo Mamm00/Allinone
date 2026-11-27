@@ -7,6 +7,11 @@ import android.content.*
 import android.os.Bundle
 import android.text.format.DateFormat
 import androidx.compose.foundation.background
+import androidx.compose.foundation.draganddrop.dragAndDropTarget
+import androidx.compose.ui.draganddrop.DragAndDropEvent
+import androidx.compose.ui.draganddrop.DragAndDropTarget
+import androidx.compose.ui.draganddrop.toAndroidDragEvent
+import com.hyperlauncher.ai.ui.search.SmartSearchPanel
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
@@ -51,6 +56,8 @@ fun WorkspaceScreen(model: WorkspaceViewModel, apps: List<AppInfo>, onDrawer: ()
     var widgetTarget by rememberSaveable { mutableStateOf<String?>(null) }
     var picking by rememberSaveable { mutableStateOf(false) }
     var pin by remember { mutableStateOf(false) }
+    var pinDock by remember { mutableStateOf(false) }
+    var searching by rememberSaveable { mutableStateOf(false) }
     val host = remember { AppWidgetHost(context.applicationContext, 0x48594c) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     DisposableEffect(host, lifecycle) {
@@ -67,7 +74,24 @@ fun WorkspaceScreen(model: WorkspaceViewModel, apps: List<AppInfo>, onDrawer: ()
     val logical = CircularPages.logical(pager.currentPage, layout.pages)
     val scope = rememberCoroutineScope()
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        Column(Modifier.fillMaxSize().systemBarsPadding()) {
+        if (searching) Column(Modifier.fillMaxSize().systemBarsPadding()) {
+            Box(Modifier.weight(1f)) { SmartSearchPanel(apps,
+                layout.options["provider"] ?: "https://duckduckgo.com/?q={query}",
+                onProvider={save(layout.option("provider",it))},onLaunch=onLaunch,onClose={searching=false}) }
+            val dropTarget = remember(layout, logical, apps) { object : DragAndDropTarget {
+                override fun onDrop(event: DragAndDropEvent): Boolean {
+                    val pkg = event.toAndroidDragEvent().clipData?.getItemAt(0)?.text?.toString() ?: return false
+                    if (apps.none { it.packageName == pkg }) return false
+                    save(layout.copy(items=layout.items+Placement(page=logical,kind="app",packageName=pkg,
+                        width=1f/layout.columns,height=1f/layout.rows)))
+                    searching=false; return true
+                }
+            } }
+            Surface(Modifier.fillMaxWidth().height(80.dp).dragAndDropTarget(shouldStartDragAndDrop={true},target=dropTarget),
+                color=MaterialTheme.colorScheme.primaryContainer) {
+                Box(contentAlignment=Alignment.Center) { Text("Drop shortcut on home page ${logical+1}") }
+            }
+        } else Column(Modifier.fillMaxSize().systemBarsPadding()) {
             Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text("Home", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
                 TextButton({ edit = !edit }) { Text(if (edit) "Done" else "Edit") }
@@ -76,7 +100,7 @@ fun WorkspaceScreen(model: WorkspaceViewModel, apps: List<AppInfo>, onDrawer: ()
             if (edit) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                 TextButton({ widgetTarget = null; picking = true }) { Text("+ Widget") }
                 TextButton({ save(layout.copy(items = layout.items + Placement(page = logical, kind = "clock"))) }) { Text("+ Clock") }
-                TextButton({ pin = true }) { Text("+ App") }
+                TextButton({ pinDock=false; pin = true }) { Text("+ App") }
             }
             HorizontalPager(pager, modifier = Modifier.weight(1f).fillMaxWidth(), userScrollEnabled = !edit) { virtual ->
                 val page = CircularPages.logical(virtual, layout.pages)
@@ -95,8 +119,23 @@ fun WorkspaceScreen(model: WorkspaceViewModel, apps: List<AppInfo>, onDrawer: ()
                     pager.animateScrollToPage(pager.currentPage + CircularPages.shortestDelta(logical, page, layout.pages))
                 } }) { Text(if (logical == page) "●" else "○") } }
             }
+            if (layout.options["dockSearch"] != "false") FilledTonalButton({searching=true},Modifier.fillMaxWidth().padding(horizontal=16.dp)) { Text("Search apps, contacts and web") }
+            val slots=(layout.options["dockSlots"]?.toIntOrNull() ?: 5).coerceIn(4,6)
+            val dock=layout.dockApps
+            val dockPager=rememberPagerState(pageCount={ ((dock.size+slots-1)/slots).coerceAtLeast(1) })
+            HorizontalPager(dockPager,modifier=Modifier.fillMaxWidth().height(64.dp)) { dockPage ->
+                Row(Modifier.fillMaxSize(),horizontalArrangement=Arrangement.SpaceEvenly) {
+                    repeat(slots) { slot ->
+                        val pkg=dock.getOrNull(dockPage*slots+slot)
+                        TextButton({ if (pkg==null || edit) {pinDock=true;pin=true} else onLaunch(pkg) },Modifier.weight(1f)) {
+                            Text(pkg?.let { name -> apps.firstOrNull { it.packageName==name }?.label } ?: "+",maxLines=2)
+                        }
+                    }
+                }
+            }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                 FilledTonalButton(onDrawer) { Text("All apps") }
+                TextButton({searching=true}) {Text("Search")}
                 TextButton(onSettings) { Text("Settings") }
             }
         }
@@ -113,13 +152,20 @@ fun WorkspaceScreen(model: WorkspaceViewModel, apps: List<AppInfo>, onDrawer: ()
     if (pin) AlertDialog(onDismissRequest = { pin = false }, title = { Text("Pin an app") },
         text = { Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
             apps.forEach { app -> TextButton({
-                save(layout.copy(items = layout.items + Placement(page = logical, kind = "app", packageName = app.packageName,
+                if(pinDock) save(layout.option("dock",(layout.dockApps+app.packageName).distinct().take(30).joinToString("|")))
+                else save(layout.copy(items = layout.items + Placement(page = logical, kind = "app", packageName = app.packageName,
                     width = 1f/layout.columns, height = 1f/layout.rows)))
                 pin = false
             }) { Text(app.label) } }
         } }, confirmButton = { TextButton({ pin = false }) { Text("Cancel") } })
     if (preferences) AlertDialog(onDismissRequest = { preferences = false }, title = { Text("Layout for this display/orientation") },
         text = { Column(Modifier.verticalScroll(rememberScrollState())) {
+            Text("Dock slots: ${layout.options["dockSlots"] ?: "5"}")
+            Slider((layout.options["dockSlots"]?.toFloatOrNull() ?: 5f),{save(layout.option("dockSlots",it.roundToInt().toString()))},valueRange=4f..6f,steps=1)
+            Text("Dock search pill")
+            Switch(layout.options["dockSearch"]!="false",{save(layout.option("dockSearch",it.toString()))})
+            TextButton({pinDock=true;pin=true;preferences=false}) {Text("Add another dock app/page")}
+            TextButton({save(layout.option("dock",""))}) {Text("Clear dock")}
             Text("Gridless placement (default). Disable to align moves to the configured grid.")
             Switch(layout.gridless, { save(layout.copy(gridless = it)) })
             Text("Columns: ${layout.columns}")

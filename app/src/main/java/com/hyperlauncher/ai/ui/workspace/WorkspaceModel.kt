@@ -19,7 +19,8 @@ data class Placement(
     }
 }
 data class WorkspaceLayout(val pages: Int = 3, val columns: Int = 4, val rows: Int = 6,
-    val gridless: Boolean = true, val items: List<Placement> = emptyList())
+    val gridless: Boolean = true, val items: List<Placement> = emptyList(),
+    val options: Map<String,String> = emptyMap())
 
 object CircularPages {
     fun wrap(index: Int, count: Int): Int { require(count > 0); return Math.floorMod(index, count) }
@@ -35,6 +36,7 @@ object WorkspaceCodec {
     fun encode(layout: WorkspaceLayout): String = buildJsonObject {
         put("pages", layout.pages); put("columns", layout.columns); put("rows", layout.rows)
         put("gridless", layout.gridless)
+        putJsonObject("options") { layout.options.forEach { (key,value) -> put(key,value) } }
         putJsonArray("items") { layout.items.forEach { item -> add(buildJsonObject {
             put("id", item.id); put("page", item.page); put("x", item.x); put("y", item.y)
             put("width", item.width); put("height", item.height); put("active", item.activeWidget)
@@ -57,6 +59,9 @@ object WorkspaceCodec {
                     activeWidget=i["active"]?.jsonPrimitive?.intOrNull ?: 0,
                     packageName=i["package"]?.jsonPrimitive?.content.orEmpty(),
                     kind=i["kind"]?.jsonPrimitive?.content ?: "widget").bounded()
-            }.distinctBy { it.id })
+            }.distinctBy { it.id }, root["options"]?.jsonObject?.mapValues { it.value.jsonPrimitive.content }.orEmpty())
     }
 }
+
+val WorkspaceLayout.dockApps: List<String> get() = options["dock"].orEmpty().split('|').filter { it.isNotEmpty() }.take(30)
+fun WorkspaceLayout.option(key: String, value: String) = copy(options = options + (key to value))

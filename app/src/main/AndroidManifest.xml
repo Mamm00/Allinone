@@ -6,6 +6,8 @@
          INTERNET is declared ONLY in the network flavor overlay. -->
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
 
+    <uses-permission android:name="android.permission.READ_CONTACTS" />
+
     <application
         android:name=".HyperLauncherApp"
         android:allowBackup="false"
