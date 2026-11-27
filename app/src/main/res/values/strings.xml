@@ -94,4 +94,6 @@
     <string name="done">Done</string>
     <string name="app_paused">Paused by Android — manage in system settings</string>
     <string name="app_archived">Archived — restore through Android or your app store</string>
+    <string name="gesture_accessibility_label">HyperLauncher gesture actions (read-free)</string>
+    <string name="gesture_accessibility_description">Optional gestures for lock screen, notifications and recents. This service does not retrieve screen content, inspect text, or send any data. It is separate from the optional vault text-capture service. Disable it in Android Accessibility Settings at any time.</string>
 </resources>

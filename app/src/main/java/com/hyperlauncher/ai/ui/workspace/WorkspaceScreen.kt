@@ -7,6 +7,15 @@ import android.content.*
 import android.os.Bundle
 import android.text.format.DateFormat
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInRoot
+import com.hyperlauncher.ai.ui.gestures.*
+import android.accessibilityservice.AccessibilityService
+import android.app.ActivityOptions
+import android.widget.Toast
+import com.hyperlauncher.ai.service.GestureAccessibilityService
 import androidx.compose.foundation.draganddrop.dragAndDropTarget
 import androidx.compose.ui.draganddrop.DragAndDropEvent
 import androidx.compose.ui.draganddrop.DragAndDropTarget
@@ -58,6 +67,9 @@ fun WorkspaceScreen(model: WorkspaceViewModel, apps: List<AppInfo>, onDrawer: ()
     var pin by remember { mutableStateOf(false) }
     var pinDock by remember { mutableStateOf(false) }
     var searching by rememberSaveable { mutableStateOf(false) }
+    var gesturePrefs by remember { mutableStateOf(false) }
+    var iconPrefs by remember { mutableStateOf<Placement?>(null) }
+    var folder by remember { mutableStateOf<Placement?>(null) }
     val host = remember { AppWidgetHost(context.applicationContext, 0x48594c) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     DisposableEffect(host, lifecycle) {
@@ -73,6 +85,31 @@ fun WorkspaceScreen(model: WorkspaceViewModel, apps: List<AppInfo>, onDrawer: ()
     val pager = rememberPagerState(initialPage = CircularPages.initial(layout.pages), pageCount = { Int.MAX_VALUE })
     val logical = CircularPages.logical(pager.currentPage, layout.pages)
     val scope = rememberCoroutineScope()
+    fun perform(action: String, origin: Offset = Offset.Zero) {
+        fun unavailable() { Toast.makeText(context,"Enable the optional read-free gesture service in Android Accessibility Settings",Toast.LENGTH_LONG).show() }
+        when {
+            action=="drawer" || action=="drawerSearch" -> onDrawer()
+            action=="search" -> searching=true
+            action=="widgets" -> {widgetTarget=null;picking=true}
+            action=="edit" -> edit=!edit
+            action=="notifications" -> if(!GestureAccessibilityService.perform(AccessibilityService.GLOBAL_ACTION_NOTIFICATIONS)) unavailable()
+            action=="screenOff" -> if(!GestureAccessibilityService.perform(AccessibilityService.GLOBAL_ACTION_LOCK_SCREEN)) unavailable()
+            action=="recents" -> if(!GestureAccessibilityService.perform(AccessibilityService.GLOBAL_ACTION_RECENTS)) unavailable()
+            action.startsWith("app:") -> {
+                val intent=context.packageManager.getLaunchIntentForPackage(action.removePrefix("app:"))
+                val view=(context as? android.app.Activity)?.window?.decorView
+                if(intent!=null) runCatching {
+                    val options=view?.let { ActivityOptions.makeClipRevealAnimation(it,origin.x.toInt(),origin.y.toInt(),1,1).toBundle() }
+                    context.startActivity(intent,options)
+                }
+            }
+            action.startsWith("intent:") -> runCatching {
+                val intent=Intent.parseUri(action.removePrefix("intent:"),Intent.URI_INTENT_SCHEME)
+                intent.flags=intent.flags and (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION).inv()
+                context.startActivity(intent)
+            }.onFailure { Toast.makeText(context,"Custom intent could not be opened",Toast.LENGTH_SHORT).show() }
+        }
+    }
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         if (searching) Column(Modifier.fillMaxSize().systemBarsPadding()) {
             Box(Modifier.weight(1f)) { SmartSearchPanel(apps,
@@ -102,7 +139,9 @@ fun WorkspaceScreen(model: WorkspaceViewModel, apps: List<AppInfo>, onDrawer: ()
                 TextButton({ save(layout.copy(items = layout.items + Placement(page = logical, kind = "clock"))) }) { Text("+ Clock") }
                 TextButton({ pinDock=false; pin = true }) { Text("+ App") }
             }
-            HorizontalPager(pager, modifier = Modifier.weight(1f).fillMaxWidth(), userScrollEnabled = !edit) { virtual ->
+            HorizontalPager(pager, modifier = Modifier.weight(1f).fillMaxWidth().homeGestures(!edit && layout.options["gesturesEnabled"]!="false") { gesture,origin ->
+                perform(layout.options["gesture_"+gesture.name] ?: GestureMath.defaultAction(gesture),origin)
+            }, userScrollEnabled = !edit) { virtual ->
                 val page = CircularPages.logical(virtual, layout.pages)
                 // The recycler addresses one logical page; layouts are never cloned at the wrap.
                 // Only the settled/current page owns live RemoteViews (one host view per widget ID).
@@ -111,7 +150,11 @@ fun WorkspaceScreen(model: WorkspaceViewModel, apps: List<AppInfo>, onDrawer: ()
                     onRemove = { item ->
                         item.widgets.forEach { host.deleteAppWidgetId(it) }
                         save(layout.copy(items = layout.items.filterNot { it.id == item.id }))
-                    }, onStack = { widgetTarget = it.id; picking = true }, onLaunch = onLaunch)
+                    }, onStack = { widgetTarget = it.id; picking = true }, onLaunch = onLaunch,
+                    onIconPreferences={iconPrefs=it},onIconGesture={item,direction,origin ->
+                        if(item.kind=="folder" && (direction=="UP" || direction=="OPEN")) folder=item
+                        else perform(GestureMath.iconAction(item.kind,direction,layout.options["icon_${item.id}_$direction"]),origin)
+                    })
                 else Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Page ${page + 1}") }
             }
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
@@ -140,6 +183,13 @@ fun WorkspaceScreen(model: WorkspaceViewModel, apps: List<AppInfo>, onDrawer: ()
             }
         }
     }
+    if(gesturePrefs) GesturePreferences(layout.options,apps,onSet={key,value -> save(layout.option(key,value))},onDismiss={gesturePrefs=false})
+    iconPrefs?.let { item -> GesturePreferences(layout.options,apps,prefix="icon_${item.id}_",onSet={key,value -> save(layout.option(key,value))},onDismiss={iconPrefs=null}) }
+    folder?.let { item -> AlertDialog(onDismissRequest={folder=null},title={Text("Folder")},text={
+        Column(Modifier.heightIn(max=350.dp).verticalScroll(rememberScrollState())) {
+            item.packageName.split('|').forEach {pkg -> TextButton({onLaunch(pkg);folder=null}) {Text(apps.firstOrNull {it.packageName==pkg}?.label ?: pkg)} }
+        }
+    },confirmButton={TextButton({folder=null}){Text("Close")}}) }
     val message by model.error.collectAsState()
     message?.let { AlertDialog(onDismissRequest = { model.error.value = null }, text = { Text(it) },
         confirmButton = { TextButton({ model.error.value = null }) { Text("OK") } }) }
@@ -160,6 +210,10 @@ fun WorkspaceScreen(model: WorkspaceViewModel, apps: List<AppInfo>, onDrawer: ()
         } }, confirmButton = { TextButton({ pin = false }) { Text("Cancel") } })
     if (preferences) AlertDialog(onDismissRequest = { preferences = false }, title = { Text("Layout for this display/orientation") },
         text = { Column(Modifier.verticalScroll(rememberScrollState())) {
+            TextButton({gesturePrefs=true}) {Text("Home gesture assignments")}
+            TextButton({
+                save(layout.copy(items=layout.items+Placement(page=logical,kind="folder",packageName=layout.dockApps.joinToString("|"),width=.3f,height=.15f)))
+            },enabled=layout.dockApps.size>=2) {Text("Create folder from dock apps")}
             Text("Dock slots: ${layout.options["dockSlots"] ?: "5"}")
             Slider((layout.options["dockSlots"]?.toFloatOrNull() ?: 5f),{save(layout.option("dockSlots",it.roundToInt().toString()))},valueRange=4f..6f,steps=1)
             Text("Dock search pill")
@@ -181,7 +235,8 @@ fun WorkspaceScreen(model: WorkspaceViewModel, apps: List<AppInfo>, onDrawer: ()
 @Composable
 fun WorkspacePage(layout: WorkspaceLayout, page: Int, edit: Boolean, host: AppWidgetHost,
                   apps: List<AppInfo>, onChange: (Placement) -> Unit, onRemove: (Placement) -> Unit,
-                  onStack: (Placement) -> Unit, onLaunch: (String) -> Unit) {
+                  onStack: (Placement) -> Unit, onLaunch: (String) -> Unit,
+                  onIconPreferences: (Placement)->Unit = {}, onIconGesture: (Placement,String,Offset)->Unit = {_,_,_->}) {
     BoxWithConstraints(Modifier.fillMaxSize().testTag("workspace_page")) {
         val pageWidth = maxWidth
         val pageHeight = maxHeight
@@ -204,8 +259,17 @@ fun WorkspacePage(layout: WorkspaceLayout, page: Int, edit: Boolean, host: AppWi
                 .testTag("placement_${item.id}")) {
                 when (item.kind) {
                     "clock" -> BuiltInClock(Modifier.fillMaxSize())
-                    "app" -> TextButton({ if (!edit) onLaunch(item.packageName) }, Modifier.fillMaxSize()) {
-                        Text(apps.firstOrNull { it.packageName == item.packageName }?.label ?: item.packageName)
+                    "app", "folder" -> {
+                        var origin by remember {mutableStateOf(Offset.Zero)}
+                        var drag by remember {mutableStateOf(Offset.Zero)}
+                        Box(Modifier.fillMaxSize().onGloballyPositioned {origin=it.positionInRoot()}
+                            .combinedClickable(onClick={if(!edit) {if(item.kind=="folder") onIconGesture(item,"OPEN",origin) else onLaunch(item.packageName)}},
+                                onDoubleClick={if(!edit) onIconGesture(item,"DOUBLE_TAP",origin)},onLongClick={onIconPreferences(item)})
+                            .pointerInput(item.id,edit) { if(!edit) detectDragGestures(onDragStart={drag=Offset.Zero},onDragEnd={
+                                if(drag.getDistance()>30.dp.toPx()) onIconGesture(item,GestureMath.direction(drag.x,drag.y),origin)
+                            }) {change,amount -> change.consume();drag+=amount} },contentAlignment=Alignment.Center) {
+                            Text(if(item.kind=="folder") "▦ Folder" else apps.firstOrNull {it.packageName==item.packageName}?.label ?: item.packageName)
+                        }
                     }
                     else -> if (item.widgets.isNotEmpty()) {
                         val id = item.widgets[Math.floorMod(item.activeWidget, item.widgets.size)]
@@ -220,6 +284,7 @@ fun WorkspacePage(layout: WorkspaceLayout, page: Int, edit: Boolean, host: AppWi
                 if (edit) {
                     Row(Modifier.align(Alignment.TopCenter).background(MaterialTheme.colorScheme.surface.copy(alpha=.9f))) {
                         TextButton({ onRemove(item) }, contentPadding = PaddingValues(2.dp)) { Text("×") }
+                        if(item.kind=="app" || item.kind=="folder") TextButton({onIconPreferences(item)},contentPadding=PaddingValues(2.dp)) {Text("⋮")}
                         if (item.kind == "widget" && item.widgets.size < 8)
                             TextButton({ onStack(item) }, contentPadding = PaddingValues(2.dp)) { Text("+") }
                     }
