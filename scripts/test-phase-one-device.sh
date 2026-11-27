@@ -9,6 +9,12 @@ else
   find app/build/outputs/androidTest-results -name '*.xml' -exec cat {} \; 2>/dev/null | head -200 | while IFS= read -r line; do echo "::error::$line"; done
   exit 1
 fi
+# Connected tests may uninstall their target APK during teardown. Reinstall before
+# testing the actual launcher activity rather than mistaking teardown for a crash.
+adb install -r app/build/outputs/apk/offline/debug/app-offline-debug.apk
+adb install -r app/build/outputs/apk/network/debug/app-network-debug.apk
+adb logcat -c
+adb shell cmd package set-home-activity com.hyperlauncher.ai.debug/com.hyperlauncher.ai.MainActivity
 adb shell am start -W -n com.hyperlauncher.ai.debug/com.hyperlauncher.ai.MainActivity
 adb shell input keyevent KEYCODE_HOME
 adb shell am start -W -n com.hyperlauncher.ai.debug/com.hyperlauncher.ai.MainActivity
@@ -22,4 +28,6 @@ adb shell pidof com.hyperlauncher.ai.debug
 if adb logcat -d -s AndroidRuntime:E | grep -q 'Process: com.hyperlauncher.ai.debug'; then
   echo '::error::Launcher crashed during device checks'; exit 1
 fi
+adb shell am start -W -n com.hyperlauncher.ai.network.debug/com.hyperlauncher.ai.MainActivity
+adb shell pidof com.hyperlauncher.ai.network.debug
 echo '::notice::Drawer UI tests, Room v1-to-v2 migration, and launcher smoke checks passed on Android 14.'
