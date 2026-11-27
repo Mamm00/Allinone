@@ -26,7 +26,13 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
       - name: Lint (offline debug)
-        run: ./gradlew :app:lintOfflineDebug --stacktrace
+        run: ./gradlew :app:lintOfflineDebug --stacktrace 2>&1 | tee /tmp/gradle.log; test ${PIPESTATUS[0]} -eq 0
+      - name: Upload gradle log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-log
+          path: /tmp/gradle.log
       - name: Unit tests (offline debug)
         run: ./gradlew :app:testOfflineDebugUnitTest --stacktrace
       - name: Assemble offline debug
