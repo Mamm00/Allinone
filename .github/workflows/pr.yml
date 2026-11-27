@@ -1,0 +1,133 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-test-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Setup Android SDK
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          ls "$ANDROID_HOME" || true
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
+          sdkmanager --list_installed || true
+          yes | sdkmanager --licenses || true
+          sdkmanager "platforms;android-37" "platforms;android-36" "platforms;android-34" "build-tools;37.0.0" "build-tools;36.0.0" "build-tools;34.0.0" "platform-tools" || true
+          sdkmanager --list_installed || true
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+      - name: Lint (offline debug)
+        run: |
+          ./gradlew :app:lintOfflineDebug --stacktrace 2>&1 | tee /tmp/gradle.log
+          STATUS=${PIPESTATUS[0]}
+          if [ $STATUS -ne 0 ]; then
+            echo "=== GRADLE FAILURE SUMMARY ==="
+            grep -E "FAILED|error:|e: |What went wrong|Could not|Unresolved|Execution failed|requires|compileSdk|Dependency" /tmp/gradle.log | head -80 | while IFS= read -r line; do echo "::error::$line"; done
+            echo "=== WHAT WENT WRONG BLOCK ==="
+            awk '/What went wrong/{flag=1} flag{print; count++} count>60{exit}' /tmp/gradle.log | while IFS= read -r line; do echo "::error::$line"; done
+            echo "=== LAST 80 LINES ==="
+            tail -80 /tmp/gradle.log | while IFS= read -r line; do echo "::error::$line"; done
+            exit $STATUS
+          fi
+      - name: Upload gradle log
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gradle-log
+          path: /tmp/gradle.log
+      - name: Unit tests (offline debug)
+        run: |
+          ./gradlew :app:testOfflineDebugUnitTest --stacktrace 2>&1 | tee /tmp/test.log
+          STATUS=${PIPESTATUS[0]}
+          if [ $STATUS -ne 0 ]; then
+            echo "=== TEST FAILURE SUMMARY ==="
+            grep -E "FAILED|error:|e: |What went wrong|Could not|Unresolved|Execution failed|AssertionError|expected|Test.*failed" /tmp/test.log | head -80 | while IFS= read -r line; do echo "::error::$line"; done
+            echo "=== WHAT WENT WRONG BLOCK ==="
+            awk '/What went wrong/{flag=1} flag{print; count++} count>60{exit}' /tmp/test.log | while IFS= read -r line; do echo "::error::$line"; done
+            echo "=== LAST 80 LINES ==="
+            tail -80 /tmp/test.log | while IFS= read -r line; do echo "::error::$line"; done
+            echo "=== TEST XML REPORTS ==="
+            find app/build/test-results -name "*.xml" -exec cat {} \; 2>/dev/null | head -200 | while IFS= read -r line; do echo "::error::$line"; done
+            exit $STATUS
+          fi
+      - name: Assemble offline debug
+        run: |
+          ./gradlew :app:assembleOfflineDebug --stacktrace 2>&1 | tee /tmp/asm1.log
+          STATUS=${PIPESTATUS[0]}
+          if [ $STATUS -ne 0 ]; then
+            grep -E "FAILED|error:|e: |What went wrong|Could not|Unresolved|Execution failed" /tmp/asm1.log | head -80 | while IFS= read -r line; do echo "::error::$line"; done
+            awk '/What went wrong/{flag=1} flag{print; count++} count>60{exit}' /tmp/asm1.log | while IFS= read -r line; do echo "::error::$line"; done
+            tail -80 /tmp/asm1.log | while IFS= read -r line; do echo "::error::$line"; done
+            exit $STATUS
+          fi
+      - name: Assemble network debug
+        run: |
+          ./gradlew :app:assembleNetworkDebug --stacktrace 2>&1 | tee /tmp/asm2.log
+          STATUS=${PIPESTATUS[0]}
+          if [ $STATUS -ne 0 ]; then
+            grep -E "FAILED|error:|e: |What went wrong|Could not|Unresolved|Execution failed" /tmp/asm2.log | head -80 | while IFS= read -r line; do echo "::error::$line"; done
+            awk '/What went wrong/{flag=1} flag{print; count++} count>60{exit}' /tmp/asm2.log | while IFS= read -r line; do echo "::error::$line"; done
+            tail -80 /tmp/asm2.log | while IFS= read -r line; do echo "::error::$line"; done
+            exit $STATUS
+          fi
+      - name: Verify offline has no INTERNET permission
+        run: |
+          export PATH="$ANDROID_HOME/build-tools/37.0.0:$ANDROID_HOME/build-tools/36.0.0:$ANDROID_HOME/build-tools/34.0.0:$PATH"
+          APK=$(find app/build/outputs/apk/offline/debug -name "*.apk" | head -1)
+          echo "APK: $APK"
+          aapt dump permissions "$APK" | tee /tmp/perms.txt
+          if grep -q "android.permission.INTERNET" /tmp/perms.txt; then
+            echo "FAIL: offline APK must not declare INTERNET"
+            exit 1
+          fi
+          echo "PASS: offline APK has no INTERNET permission"
+      - name: Verify network has INTERNET permission
+        run: |
+          export PATH="$ANDROID_HOME/build-tools/37.0.0:$ANDROID_HOME/build-tools/36.0.0:$ANDROID_HOME/build-tools/34.0.0:$PATH"
+          APK=$(find app/build/outputs/apk/network/debug -name "*.apk" | head -1)
+          echo "APK: $APK"
+          aapt dump permissions "$APK" | tee /tmp/perms2.txt
+          if ! grep -q "android.permission.INTERNET" /tmp/perms2.txt; then
+            echo "FAIL: network APK must declare INTERNET"
+            exit 1
+          fi
+          echo "PASS: network APK declares INTERNET"
+      - name: Assemble release APKs (for size gate)
+        run: |
+          ./gradlew :app:assembleOfflineRelease :app:assembleNetworkRelease --stacktrace 2>&1 | tee /tmp/rel.log
+          STATUS=${PIPESTATUS[0]}
+          if [ $STATUS -ne 0 ]; then
+            grep -E "FAILED|error:|e: |What went wrong|Could not|Unresolved|Execution failed" /tmp/rel.log | head -80 | while IFS= read -r line; do echo "::error::$line"; done
+            awk '/What went wrong/{flag=1} flag{print; count++} count>60{exit}' /tmp/rel.log | while IFS= read -r line; do echo "::error::$line"; done
+            tail -80 /tmp/rel.log | while IFS= read -r line; do echo "::error::$line"; done
+            exit $STATUS
+          fi
+      - name: APK size gate (<25MB target, <30MB hard, release only)
+        run: |
+          FAILED=0
+          for APK in $(find app/build/outputs/apk -path "*release*" -name "*.apk"); do
+            SIZE=$(stat -c%s "$APK")
+            echo "::error::$APK: $SIZE bytes"
+            if [ "$SIZE" -gt 31457280 ]; then
+              echo "::error::FAIL: $APK exceeds 30MB hard limit"
+              FAILED=1
+            fi
+            if [ "$SIZE" -gt 26214400 ]; then
+              echo "::error::WARN: $APK exceeds 25MB target"
+            fi
+          done
+          echo "=== DEBUG SIZES (info only) ==="
+          for APK in $(find app/build/outputs/apk -path "*debug*" -name "*.apk"); do
+            SIZE=$(stat -c%s "$APK")
+            echo "::error::DEBUG $APK: $SIZE bytes"
+          done
+          exit $FAILED

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Network flavor only: INTERNET for OpenRouter Creative Layer.
+         The offline flavor never declares this permission. -->
+    <uses-permission android:name="android.permission.INTERNET" />
+</manifest>
