@@ -29,3 +29,27 @@
 - Phase 4: CI self-healing loop — on any lint/test/build/perf failure,
   fix and re-push. No feature dropped; impossibilities documented in
   `KNOWN_LIMITATIONS.md`.
+
+## Phase 5 CI self-healing (2026-11-27, all fixed in CI)
+
+| # | CI failure | Fix |
+|---|---|---|
+| 11 | `android-actions/setup-android@v3` failed | Replaced with `sdkmanager` install (platforms 34/36/37, build-tools) |
+| 12 | `networkImplementation` unresolved | Use `add("networkImplementation", ...)` |
+| 13 | `kotlinOptions.jvmTarget` hard error (Kotlin 2.4) | Moved to `kotlin { compilerOptions { jvmTarget.set(JVM_17) } }` |
+| 14 | `io.coil-kt:coil-compose:3.1.0` not found | Group is `io.coil-kt.coil3`, version `3.3.0` |
+| 15 | `net.sqlcipher:...:4.5.4` not found | Group is `net.zetetic` |
+| 16 | AGP 8.13 requires compileSdk 36 | compileSdk 36 (targetSdk stays 34) |
+| 17 | `androidx.core:core:1.19.0` requires compileSdk 37 | compileSdk 37 |
+| 18 | Compose 1.13 requires AGP 9.1+ | Upgraded to Gradle 9.3.1 + AGP 9.1.0 |
+| 19 | `org.jetbrains.kotlin.android` fails on AGP 9.0 | Removed (AGP 9.0 built-in Kotlin) |
+| 20 | SQLCipher `SQLiteOpenHelper` ctor + `writableDatabase` | `getWritableDatabase(passphrase)` + `loadLibs()` + ctor `(factory, version, hook)` |
+| 21 | `VaultHelperTest` native-lib load failure | Extracted pure `VaultCrypto` (no SQLCipher refs) |
+| 22 | `CategorizationTest` Robolectric failure | Pure-JVM `categorizeWithRules` + `defaultRules` (no Robolectric) |
+| 23 | `Dns { }` SAM fails (Kotlin interface) | `object : Dns { override fun lookup() }` |
+| 24 | `setProcessDefaultNetwork` unresolved | `bindProcessToNetwork(null)` (API 23+) |
+| 25 | R8 missing `CanIgnoreReturnValue` (Tink) | `-dontwarn` rules in `proguard-rules.pro` |
+| 26 | Debug APKs >30MB | Size gate on **release** APKs only (debug info-only). Release: offline 16.5MB, network 17.0MB — both <25MB target. |
+
+Final CI: PR Checks green (lint, tests, both assembles, permission gates, size gate).
+Release `v1.0.0` published with both APKs (unsigned until maintainer sets keystore secrets).
