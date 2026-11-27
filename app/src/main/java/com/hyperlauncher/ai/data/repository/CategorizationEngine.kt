@@ -48,13 +48,16 @@ class CategorizationEngine(private val context: Context) {
                 else -> null
             }
             if (platformId != null && rules.any { it.id == platformId }) return platformId
-            val text = (label + " " + packageName).lowercase(Locale.ROOT)
-            val tokens = text.split(Regex("[^\\p{L}\\p{N}]+"))
+            // Token/phrase boundaries avoid "phone" matching "xylophone" and "ai"
+            // matching "daily". Split camel-case names so MyBank still matches bank.
+            fun normalize(value: String) = value.replace(Regex("([a-z])([A-Z])"), "$1 $2")
+                .lowercase(Locale.ROOT).replace(Regex("[^\\p{L}\\p{N}]+"), " ").trim()
+            val text = " " + normalize(label + " " + packageName) + " "
             for (rule in rules) {
                 if (rule.id == "others") continue
                 if (rule.keywords.any { raw ->
-                    val keyword = raw.lowercase(Locale.ROOT)
-                    keyword.isNotBlank() && if (keyword.length <= 3) keyword in tokens else text.contains(keyword)
+                    val keyword = normalize(raw)
+                    keyword.isNotBlank() && text.contains(" $keyword ")
                 }) return rule.id
             }
             return "others"
