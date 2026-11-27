@@ -45,7 +45,6 @@ class MainActivity : ComponentActivity() {
     private val homeRequests=MutableStateFlow(0)
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
-        setIntent(intent)
         if(intent.action==Intent.ACTION_MAIN && intent.hasCategory(Intent.CATEGORY_HOME)) homeRequests.value++
     }
 

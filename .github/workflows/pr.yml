@@ -109,18 +109,6 @@ jobs:
             exit 1
           fi
           echo "PASS: network APK declares INTERNET"
-      - name: Assemble release APKs
-        run: |
-          ./gradlew :app:assembleOfflineRelease :app:assembleNetworkRelease --stacktrace 2>&1 | tee /tmp/rel.log
-          STATUS=${PIPESTATUS[0]}
-          if [ $STATUS -ne 0 ]; then
-            grep -E "FAILED|error:|e: |What went wrong|Could not|Unresolved|Execution failed" /tmp/rel.log | head -80 | while IFS= read -r line; do echo "::error::$line"; done
-            awk '/What went wrong/{flag=1} flag{print; count++} count>60{exit}' /tmp/rel.log | while IFS= read -r line; do echo "::error::$line"; done
-            tail -80 /tmp/rel.log | while IFS= read -r line; do echo "::error::$line"; done
-            exit $STATUS
-          fi
-      - name: Report APK sizes (informational, no limit)
-        run: find app/build/outputs/apk -name '*.apk' -printf '%p %s bytes\n'
       - name: Enable Android emulator acceleration
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -143,6 +131,18 @@ jobs:
             echo "::error::Device script was not reached: emulator provisioning or boot failed."
           fi
           python3 scripts/report-test-failures.py /tmp/phase-one-device.log
+      - name: Assemble release APKs
+        run: |
+          ./gradlew :app:assembleOfflineRelease :app:assembleNetworkRelease --stacktrace 2>&1 | tee /tmp/rel.log
+          STATUS=${PIPESTATUS[0]}
+          if [ $STATUS -ne 0 ]; then
+            grep -E "FAILED|error:|e: |What went wrong|Could not|Unresolved|Execution failed" /tmp/rel.log | head -80 | while IFS= read -r line; do echo "::error::$line"; done
+            awk '/What went wrong/{flag=1} flag{print; count++} count>60{exit}' /tmp/rel.log | while IFS= read -r line; do echo "::error::$line"; done
+            tail -80 /tmp/rel.log | while IFS= read -r line; do echo "::error::$line"; done
+            exit $STATUS
+          fi
+      - name: Report APK sizes (informational, no limit)
+        run: find app/build/outputs/apk -name '*.apk' -printf '%p %s bytes\n'
       - name: Upload device test reports
         if: always()
         uses: actions/upload-artifact@v4

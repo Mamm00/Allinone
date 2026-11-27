@@ -33,8 +33,10 @@ class WhiteThemeUiTest {
         assertWhiteWindow()
         // A singleTop launcher HOME intent must leave Settings and return to home.
         compose.runOnIdle {
-            compose.activity.startActivity(Intent(compose.activity,MainActivity::class.java)
-                .setAction(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            // Deliver the framework callback without converting ActivityScenario's
+            // task into Android's unfinishable root HOME task. Real HOME delivery
+            // is tested separately by the adb smoke checks outside ActivityScenario.
+            compose.activity.onNewIntent(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME))
         }
         compose.waitUntil(15000) {compose.onAllNodesWithText("All apps").fetchSemanticsNodes().isNotEmpty()}
         compose.onNodeWithText("All apps").performClick()
