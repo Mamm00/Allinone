@@ -112,7 +112,7 @@ fun DrawerContent(
     aiPromptBar: @Composable () -> Unit = {},
     onHidden: ()->Unit = {}
 ) {
-    Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
+    Column(Modifier.fillMaxSize().systemBarsPadding().padding(horizontal = 16.dp)) {
         Text(stringResource(R.string.drawer_title), style = MaterialTheme.typography.headlineMedium,
             modifier = Modifier.padding(top = 12.dp, bottom = 8.dp))
         OutlinedTextField(value = state.searchQuery, onValueChange = onQuery,
