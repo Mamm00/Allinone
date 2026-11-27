@@ -13,6 +13,8 @@ import android.net.Uri
 import android.provider.Settings
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -145,7 +147,7 @@ fun DrawerContent(
             }
         }
         // Keep the existing opt-in AI workflow without consuming the list's entire height.
-        Box(Modifier.heightIn(max = 160.dp)) { aiPromptBar() }
+        Box(Modifier.heightIn(max = 160.dp).verticalScroll(rememberScrollState())) { aiPromptBar() }
     }
 }
 

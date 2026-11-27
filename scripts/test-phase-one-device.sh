@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
+trap 'echo "::error::Device check failed at line $LINENO"; adb logcat -d -s AndroidRuntime:E | tail -90 | while IFS= read -r line; do echo "::error::$line"; done' ERR
 if ./gradlew :app:connectedOfflineDebugAndroidTest --stacktrace > /tmp/phase-one-device.log 2>&1; then
   tail -30 /tmp/phase-one-device.log
+  echo '::notice::Connected Android instrumentation tests passed.' 
 else
   tail -100 /tmp/phase-one-device.log | while IFS= read -r line; do echo "::error::$line"; done
   find app/build/outputs/androidTest-results -name '*.xml' -exec cat {} \; 2>/dev/null | head -200 | while IFS= read -r line; do echo "::error::$line"; done
