@@ -39,6 +39,10 @@ system wallpaper are not recolored by this app.
 - Android 14: existing migration/drawer/resize/glass/feed/backup/persistence tests.
   New actual-activity home → Settings → recreation → HOME → drawer → vault checks
   assert white rendered root pixels, dark system-bar icons and masked passwords.
+  The HOME callback is delivered within ActivityScenario; the separate adb smoke
+  test exercises real HOME-task delivery (Android will not finish a root HOME task
+  at ActivityScenario teardown). Palette JVM tests use a plain Application, since
+  Android Keystore startup belongs in device tests rather than palette math tests.
   The device script repeats the new test with Android dark mode enabled.
 - Both APK flavors: debug/release builds and offline/network permission gates.
 - Signed release: unchanged permanent key; compare identity with v1.0.1 and v1.1.0;

@@ -130,7 +130,7 @@ jobs:
           else
             echo "::error::Device script was not reached: emulator provisioning or boot failed."
           fi
-          python3 scripts/report-test-failures.py /tmp/phase-one-device.log
+          if [ -f /tmp/phase-one-device.log ]; then python3 scripts/report-test-failures.py /tmp/phase-one-device.log; fi
       - name: Assemble release APKs
         run: |
           ./gradlew :app:assembleOfflineRelease :app:assembleNetworkRelease --stacktrace 2>&1 | tee /tmp/rel.log

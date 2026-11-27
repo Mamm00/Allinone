@@ -78,7 +78,7 @@
     <string name="apply_similar">Also apply to %1$d similar apps</string>
     <string name="similar_explanation">Similar apps share the original automatic category. Existing manual assignments are never changed.</string>
     <string name="auto_categorize">Automatic categorization</string>
-    <string name="ambient_colors">Wallpaper colors</string>
+    <string name="ambient_colors">Wallpaper accent colors (white background)</string>
     <string name="show_system_state">Show paused and archived labels</string>
     <string name="notification_badges">Notification dots and counts</string>
     <string name="notification_access_label">HyperLauncher notification badges</string>
