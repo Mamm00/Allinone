@@ -1,6 +1,22 @@
 package com.hyperlauncher.ai.ui.workspace
 
+import android.app.WallpaperManager
+import android.graphics.BitmapFactory
+import android.graphics.Bitmap
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.hyperlauncher.ai.BuildConfig
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import android.appwidget.AppWidgetHost
+import android.app.WallpaperManager
+import android.graphics.BitmapFactory
+import android.graphics.Bitmap
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import com.hyperlauncher.ai.BuildConfig
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import android.appwidget.AppWidgetHostView
 import android.appwidget.AppWidgetManager
 import android.content.*
@@ -70,6 +86,7 @@ fun WorkspaceScreen(model: WorkspaceViewModel, apps: List<AppInfo>, onDrawer: ()
     var gesturePrefs by remember { mutableStateOf(false) }
     var iconPrefs by remember { mutableStateOf<Placement?>(null) }
     var folder by remember { mutableStateOf<Placement?>(null) }
+    var builtins by remember {mutableStateOf(false)}
     val host = remember { AppWidgetHost(context.applicationContext, 0x48594c) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     DisposableEffect(host, lifecycle) {
@@ -85,6 +102,26 @@ fun WorkspaceScreen(model: WorkspaceViewModel, apps: List<AppInfo>, onDrawer: ()
     val pager = rememberPagerState(initialPage = CircularPages.initial(layout.pages), pageCount = { Int.MAX_VALUE })
     val logical = CircularPages.logical(pager.currentPage, layout.pages)
     val scope = rememberCoroutineScope()
+    val wallpaperPicker=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) {uri ->
+        if(uri!=null) scope.launch {
+            runCatching {
+                val wallpaperId=withContext(Dispatchers.IO) {
+                    val bounds=BitmapFactory.Options().apply {inJustDecodeBounds=true}
+                    context.contentResolver.openInputStream(uri)?.use {BitmapFactory.decodeStream(it,null,bounds)}
+                    require(bounds.outWidth>0 && bounds.outHeight>0)
+                    var sample=1
+                    while(bounds.outWidth/sample>1600 || bounds.outHeight/sample>1600) sample*=2
+                    val bitmap=context.contentResolver.openInputStream(uri)?.use {BitmapFactory.decodeStream(it,null,BitmapFactory.Options().apply {inSampleSize=sample})}
+                        ?: error("Unreadable image")
+                    java.io.File(context.filesDir,"workspace-wallpaper.jpg").outputStream().use {bitmap.compress(Bitmap.CompressFormat.JPEG,90,it)}
+                    WallpaperManager.getInstance(context).setBitmap(bitmap)
+                    WallpaperManager.getInstance(context).getWallpaperId(WallpaperManager.FLAG_SYSTEM)
+                }
+                save(layout.option("wallpaperVersion",wallpaperId.toString()))
+            }.onFailure {Toast.makeText(context,"Wallpaper could not be applied",Toast.LENGTH_LONG).show()}
+        }
+    }
+
     fun perform(action: String, origin: Offset = Offset.Zero) {
         fun unavailable() { Toast.makeText(context,"Enable the optional read-free gesture service in Android Accessibility Settings",Toast.LENGTH_LONG).show() }
         when {
@@ -136,7 +173,7 @@ fun WorkspaceScreen(model: WorkspaceViewModel, apps: List<AppInfo>, onDrawer: ()
             }
             if (edit) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
                 TextButton({ widgetTarget = null; picking = true }) { Text("+ Widget") }
-                TextButton({ save(layout.copy(items = layout.items + Placement(page = logical, kind = "clock"))) }) { Text("+ Clock") }
+                TextButton({ builtins=true }) { Text("+ Built-in") }
                 TextButton({ pinDock=false; pin = true }) { Text("+ App") }
             }
             HorizontalPager(pager, modifier = Modifier.weight(1f).fillMaxWidth().homeGestures(!edit && layout.options["gesturesEnabled"]!="false") { gesture,origin ->
@@ -151,6 +188,7 @@ fun WorkspaceScreen(model: WorkspaceViewModel, apps: List<AppInfo>, onDrawer: ()
                         item.widgets.forEach { host.deleteAppWidgetId(it) }
                         save(layout.copy(items = layout.items.filterNot { it.id == item.id }))
                     }, onStack = { widgetTarget = it.id; picking = true }, onLaunch = onLaunch,
+                    onWidgetOption={key,value -> save(layout.option(key,value))},onFeed={Toast.makeText(context,"Feed is not enabled yet",Toast.LENGTH_SHORT).show()},
                     onIconPreferences={iconPrefs=it},onIconGesture={item,direction,origin ->
                         if(item.kind=="folder" && (direction=="UP" || direction=="OPEN")) folder=item
                         else perform(GestureMath.iconAction(item.kind,direction,layout.options["icon_${item.id}_$direction"]),origin)
@@ -183,6 +221,11 @@ fun WorkspaceScreen(model: WorkspaceViewModel, apps: List<AppInfo>, onDrawer: ()
             }
         }
     }
+    if(builtins) AlertDialog(onDismissRequest={builtins=false},title={Text("Built-in widget")},text={Column {
+        listOf("clock","calendar","battery","music","notes","photos","rss").forEach {kind ->
+            TextButton({save(layout.copy(items=layout.items+Placement(page=logical,kind=kind)));builtins=false}) {Text(kind)}
+        }
+    }},confirmButton={TextButton({builtins=false}){Text("Cancel")}})
     if(gesturePrefs) GesturePreferences(layout.options,apps,onSet={key,value -> save(layout.option(key,value))},onDismiss={gesturePrefs=false})
     iconPrefs?.let { item -> GesturePreferences(layout.options,apps,prefix="icon_${item.id}_",onSet={key,value -> save(layout.option(key,value))},onDismiss={iconPrefs=null}) }
     folder?.let { item -> AlertDialog(onDismissRequest={folder=null},title={Text("Folder")},text={
@@ -210,6 +253,18 @@ fun WorkspaceScreen(model: WorkspaceViewModel, apps: List<AppInfo>, onDrawer: ()
         } }, confirmButton = { TextButton({ pin = false }) { Text("Cancel") } })
     if (preferences) AlertDialog(onDismissRequest = { preferences = false }, title = { Text("Layout for this display/orientation") },
         text = { Column(Modifier.verticalScroll(rememberScrollState())) {
+            if(BuildConfig.ENABLE_GLASS) {
+                Text("Widget theme")
+                listOf("material","opaque","frosted","liquid").forEach {theme -> TextButton({save(layout.option("theme",theme))}) {Text(theme)} }
+                TextButton({wallpaperPicker.launch(arrayOf("image/*"))}) {Text("Choose wallpaper for glass sampling")}
+                Text("Wallpaper pixels may be restricted by Android. Choose/apply an image here for correctly aligned blur. No storage permission or image upload is used.")
+                Text("Blur radius")
+                Slider(layout.options["blur"]?.toFloatOrNull() ?:16f,{save(layout.option("blur",it.toString()))},valueRange=0f..50f)
+                Text("Glass intensity")
+                Slider(layout.options["glassIntensity"]?.toFloatOrNull() ?:.4f,{save(layout.option("glassIntensity",it.toString()))})
+                Text("Dark overlay opacity")
+                Slider(layout.options["overlay"]?.toFloatOrNull() ?:.2f,{save(layout.option("overlay",it.toString()))},valueRange=0f.. .85f)
+            }
             TextButton({gesturePrefs=true}) {Text("Home gesture assignments")}
             TextButton({
                 save(layout.copy(items=layout.items+Placement(page=logical,kind="folder",packageName=layout.dockApps.joinToString("|"),width=.3f,height=.15f)))
@@ -236,6 +291,7 @@ fun WorkspaceScreen(model: WorkspaceViewModel, apps: List<AppInfo>, onDrawer: ()
 fun WorkspacePage(layout: WorkspaceLayout, page: Int, edit: Boolean, host: AppWidgetHost,
                   apps: List<AppInfo>, onChange: (Placement) -> Unit, onRemove: (Placement) -> Unit,
                   onStack: (Placement) -> Unit, onLaunch: (String) -> Unit,
+                  onWidgetOption: (String,String)->Unit = {_,_->}, onFeed: ()->Unit = {},
                   onIconPreferences: (Placement)->Unit = {}, onIconGesture: (Placement,String,Offset)->Unit = {_,_,_->}) {
     BoxWithConstraints(Modifier.fillMaxSize().testTag("workspace_page")) {
         val pageWidth = maxWidth
@@ -257,8 +313,9 @@ fun WorkspacePage(layout: WorkspaceLayout, page: Int, edit: Boolean, host: AppWi
                 .size(pageWidth*position.width, pageHeight*position.height)
                 .clip(RoundedCornerShape(20.dp)).background(MaterialTheme.colorScheme.surfaceVariant)
                 .testTag("placement_${item.id}")) {
+                if(BuildConfig.ENABLE_GLASS && layout.options["theme"] in listOf("opaque","frosted","liquid")) GlassBackdrop(item,layout.options)
                 when (item.kind) {
-                    "clock" -> BuiltInClock(Modifier.fillMaxSize())
+                    "clock", "calendar", "battery", "music", "notes", "photos", "rss" -> BuiltInWidget(item,layout.options,onWidgetOption,onFeed)
                     "app", "folder" -> {
                         var origin by remember {mutableStateOf(Offset.Zero)}
                         var drag by remember {mutableStateOf(Offset.Zero)}

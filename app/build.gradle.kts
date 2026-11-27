@@ -23,6 +23,7 @@ android {
         targetSdk = 34
         versionCode = 2
         versionName = "1.0.1"
+        buildConfigField("boolean", "ENABLE_GLASS", (providers.gradleProperty("enableGlass").orNull ?: "true"))
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -105,6 +106,7 @@ kotlin {
 }
 
 dependencies {
+    implementation(project(":feature-glass"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
