@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
+import kotlinx.coroutines.flow.Flow
 import com.hyperlauncher.ai.data.local.entity.AppEntity
 import com.hyperlauncher.ai.data.local.entity.AiPromptLogEntity
 import com.hyperlauncher.ai.data.local.entity.CategoryEntity
@@ -13,9 +14,24 @@ import com.hyperlauncher.ai.data.local.entity.LlmCacheEntity
 @Dao
 interface AppDao {
     @Query("SELECT * FROM apps ORDER BY label COLLATE NOCASE ASC")
+    fun observeAll(): Flow<List<AppEntity>>
+
+    @Query("UPDATE apps SET manualCategoryId = :categoryId WHERE packageName IN (:packages)")
+    suspend fun setManualCategory(packages: List<String>, categoryId: String?)
+
+    @Query("DELETE FROM apps WHERE packageName NOT IN (:packages)")
+    suspend fun removeMissing(packages: List<String>)
+
+    @Transaction
+    suspend fun replaceScan(apps: List<AppEntity>) {
+        upsertAll(apps)
+        removeMissing(apps.map { it.packageName })
+    }
+
+    @Query("SELECT * FROM apps ORDER BY label COLLATE NOCASE ASC")
     suspend fun getAll(): List<AppEntity>
 
-    @Query("SELECT * FROM apps WHERE categoryId = :categoryId ORDER BY label COLLATE NOCASE ASC")
+    @Query("SELECT * FROM apps WHERE COALESCE(manualCategoryId, categoryId) = :categoryId ORDER BY label COLLATE NOCASE ASC")
     suspend fun getByCategory(categoryId: String): List<AppEntity>
 
     @Query("SELECT * FROM apps WHERE label LIKE '%' || :query || '%' OR packageName LIKE '%' || :query || '%' ORDER BY label COLLATE NOCASE ASC")
@@ -42,6 +58,15 @@ interface AppDao {
 
 @Dao
 interface CategoryDao {
+    @Query("SELECT * FROM categories ORDER BY sortOrder ASC")
+    fun observeAll(): Flow<List<CategoryEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun seedMissing(categories: List<CategoryEntity>)
+
+    @Query("UPDATE categories SET name = :name WHERE id = :id")
+    suspend fun rename(id: String, name: String)
+
     @Query("SELECT * FROM categories ORDER BY sortOrder ASC")
     suspend fun getAll(): List<CategoryEntity>
 

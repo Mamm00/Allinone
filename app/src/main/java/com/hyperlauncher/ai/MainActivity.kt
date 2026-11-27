@@ -2,12 +2,16 @@ package com.hyperlauncher.ai
 
 import android.os.Bundle
 import android.os.SystemClock
+import androidx.activity.compose.BackHandler
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.saveable.rememberSaveable
+import com.hyperlauncher.ai.data.local.DrawerPreferences
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -46,14 +50,15 @@ class MainActivity : ComponentActivity() {
         }
 
         setContent {
-            HyperLauncherAITheme {
-                var destination by remember { mutableStateOf(Destination.LAUNCHER) }
+            val drawerPreferences by container.settingsRepository.drawerPreferences.collectAsState(DrawerPreferences())
+            HyperLauncherAITheme(ambient = drawerPreferences.ambient) {
+                var destination by rememberSaveable { mutableStateOf(Destination.LAUNCHER) }
 
                 val launcherViewModel: LauncherViewModel = viewModel(
                     factory = object : ViewModelProvider.Factory {
                         override fun <T : ViewModel> create(modelClass: Class<T>): T {
                             @Suppress("UNCHECKED_CAST")
-                            return LauncherViewModel(container.appRepository) as T
+                            return LauncherViewModel(container.appRepository, container.settingsRepository) as T
                         }
                     }
                 )
@@ -94,6 +99,7 @@ class MainActivity : ComponentActivity() {
                     }
                 )
 
+                BackHandler(enabled = destination != Destination.LAUNCHER) { destination = Destination.LAUNCHER }
                 when (destination) {
                     Destination.LAUNCHER -> {
                         LauncherScreen(
@@ -102,21 +108,6 @@ class MainActivity : ComponentActivity() {
                             onOpenVault = { destination = Destination.VAULT },
                             aiPromptBar = { AiPromptBar(viewModel = aiViewModel) }
                         )
-                        // Navigation buttons overlay (top-right)
-                        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopEnd) {
-                            androidx.compose.foundation.layout.Row {
-                                androidx.compose.material3.TextButton(
-                                    onClick = { destination = Destination.VAULT }
-                                ) {
-                                    androidx.compose.material3.Text("Vault")
-                                }
-                                androidx.compose.material3.TextButton(
-                                    onClick = { destination = Destination.SETTINGS }
-                                ) {
-                                    androidx.compose.material3.Text("Settings")
-                                }
-                            }
-                        }
                     }
                     Destination.SETTINGS -> {
                         SettingsScreen(

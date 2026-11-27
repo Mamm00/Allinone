@@ -11,6 +11,6 @@ class ExampleInstrumentedTest {
     @Test
     fun useAppContext() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        assertEquals("com.hyperlauncher.ai", context.packageName)
+        assertEquals(BuildConfig.APPLICATION_ID, context.packageName)
     }
 }
