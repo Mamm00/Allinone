@@ -317,7 +317,7 @@ fun WorkspacePage(layout: WorkspaceLayout, page: Int, edit: Boolean, host: AppWi
             }
             Box(Modifier.offset { IntOffset((position.x*widthPx).roundToInt(), (position.y*heightPx).roundToInt()) }
                 .size(pageWidth*position.width, pageHeight*position.height)
-                .clip(RoundedCornerShape(20.dp)).background(MaterialTheme.colorScheme.surfaceVariant)
+                .clip(RoundedCornerShape(20.dp)).background(if(layout.options["theme"]=="opaque") MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceVariant)
                 .testTag("placement_${item.id}")) {
                 if(BuildConfig.ENABLE_GLASS && layout.options["theme"] in listOf("frosted","liquid")) GlassBackdrop(item,layout.options)
                 when (item.kind) {

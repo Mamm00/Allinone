@@ -25,9 +25,19 @@ fun BackupDialog(setupId: String,onKwgt: (List<String>)->Unit,onDismiss: ()->Uni
     val manager=remember {WorkManager.getInstance(context)}
     val jobs by manager.getWorkInfosForUniqueWorkFlow("launcher-daily-backup").collectAsState(emptyList())
     val daily=jobs.any {!it.state.isFinished}
+    val snapshots by produceState<List<java.io.File>>(emptyList(),jobs) {
+        value=withContext(Dispatchers.IO) {
+            java.io.File(context.filesDir,"launcher-backups").listFiles()?.filter {it.extension=="zip"}
+                ?.sortedByDescending {it.name}?.take(7).orEmpty()
+        }
+    }
+    var exportSnapshot by remember {mutableStateOf<java.io.File?>(null)}
     val export=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/zip")) {uri ->
         if(uri!=null) scope.launch {busy=true;runCatching {withContext(Dispatchers.IO) {
-            context.contentResolver.openOutputStream(uri)?.let {backup.export(it)} ?:error("Cannot open destination")
+            val destination=context.contentResolver.openOutputStream(uri) ?:error("Cannot open destination")
+            val saved=exportSnapshot
+            if(saved==null) backup.export(destination) else destination.use {output ->saved.inputStream().use {it.copyTo(output)}}
+
         }}.onSuccess {message="Backup saved. Keep it private: it includes app layout and unencrypted home notes."}.onFailure {message=it.message};busy=false}
     }
     val restore=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) {uri ->
@@ -42,7 +52,7 @@ fun BackupDialog(setupId: String,onKwgt: (List<String>)->Unit,onDismiss: ()->Uni
     AlertDialog(onDismissRequest={if(!busy) onDismiss()},title={Text("Import and backup")},text={
         Column(Modifier.heightIn(max=440.dp).verticalScroll(rememberScrollState())) {
             Text("Configuration snapshots never include vault contents, API keys or notification data. Exported home notes and app layout are not encrypted.")
-            TextButton({export.launch("HyperLauncher-backup.zip")},enabled=!busy) {Text("Export native backup")}
+            TextButton({exportSnapshot=null;export.launch("HyperLauncher-backup.zip")},enabled=!busy) {Text("Export native backup")}
             TextButton({restore.launch(arrayOf("*/*"))},enabled=!busy) {Text("Preview native restore or Nova XML import")}
             Text("Nova XML favorites, dock, folders, geometry and gesture fields are supported. Proprietary/binary Nova variants are not. Android widget IDs cannot be transferred: imported widgets need rebinding.")
             TextButton({kwgt.launch(arrayOf("*/*"))},enabled=!busy) {Text("Include user-exported KWGT files")}
@@ -52,12 +62,21 @@ fun BackupDialog(setupId: String,onKwgt: (List<String>)->Unit,onDismiss: ()->Uni
                 Switch(daily,{enabled ->if(enabled) manager.enqueueUniquePeriodicWork("launcher-daily-backup",ExistingPeriodicWorkPolicy.KEEP,
                     PeriodicWorkRequestBuilder<DailyBackupWorker>(1,TimeUnit.DAYS).build()) else manager.cancelUniqueWork("launcher-daily-backup")})
             }
+            snapshots.forEach {file ->
+                Text(file.name,style=MaterialTheme.typography.bodySmall)
+                Row {
+                    TextButton({scope.launch {busy=true;runCatching {withContext(Dispatchers.IO) {
+                        backup.preview(file.inputStream(),setupId)
+                    }}.onSuccess {preview=it}.onFailure {message=it.message};busy=false}},enabled=!busy) {Text("Preview restore")}
+                    TextButton({exportSnapshot=file;export.launch(file.name)},enabled=!busy) {Text("Export copy")}
+                }
+            }
             message?.let {Text(it)}
             if(busy) CircularProgressIndicator()
         }
     },confirmButton={TextButton(onDismiss,enabled=!busy){Text("Done")}})
-    preview?.let {candidate ->AlertDialog(onDismissRequest={preview=null},title={Text("Confirm restore/import")},
+    preview?.let {candidate ->AlertDialog(onDismissRequest={if(!busy) preview=null},title={Text("Confirm restore/import")},
         text={Text(candidate.note+"\nOnly import files you trust. No data changes until you confirm. KWGT exports stay inside the ZIP for manual import in KWGT.")},
-        confirmButton={TextButton({scope.launch {busy=true;runCatching {backup.restore(candidate)}.onSuccess {message="Restore applied. Rebind imported widgets using + Widget on each empty slot."}.onFailure {message=it.message};preview=null;busy=false}}){Text("Apply")}},
-        dismissButton={TextButton({preview=null}){Text("Cancel")}})}
+        confirmButton={TextButton({scope.launch {busy=true;runCatching {backup.restore(candidate)}.onSuccess {message="Restore applied. Rebind imported widgets using + Widget on each empty slot."}.onFailure {message=it.message};preview=null;busy=false}},enabled=!busy){Text("Apply")}},
+        dismissButton={TextButton({preview=null},enabled=!busy){Text("Cancel")}})}
 }

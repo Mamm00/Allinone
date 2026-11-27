@@ -25,4 +25,4 @@ for flavor in offline network; do
   cp "$apk" "release-apks/HyperLauncherAI-$flavor-release.apk"
   echo "::notice::Verified $flavor: signed by expected key, aligned, permissions correct."
 done
-(cd release-apks && sha256sum ./*.apk > SHA256SUMS.txt)
+(cd release-apks && zip -j HyperLauncherAI-APKs.zip ./*.apk && sha256sum ./*.apk ./*.zip > SHA256SUMS.txt)
