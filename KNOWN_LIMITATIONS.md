@@ -1,5 +1,12 @@
 # KNOWN_LIMITATIONS
 
+## Toolchain deviation (documented)
+
+- **compileSdk 36 (spec said 34).** AGP 8.13.0 requires `compileSdk 36`
+  (`checkAarMetadata` fails on 34). `targetSdk` remains **34** and `minSdk`
+  remains **28** per spec. This is the minimal deviation to build with the
+  current stable AGP.
+
 ## Hard limits (documented impossibilities)
 
 1. **Local compilation impossible in sandbox.** No JDK, no Android SDK, and
