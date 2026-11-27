@@ -96,4 +96,12 @@
     <string name="app_archived">Archived — restore through Android or your app store</string>
     <string name="gesture_accessibility_label">HyperLauncher gesture actions (read-free)</string>
     <string name="gesture_accessibility_description">Optional gestures for lock screen, notifications and recents. This service does not retrieve screen content, inspect text, or send any data. It is separate from the optional vault text-capture service. Disable it in Android Accessibility Settings at any time.</string>
+    <string name="search_preferences">Search preferences</string>
+    <string name="pref_appearance">Appearance: fonts, font weight, clock, icon shapes, packs and immersive bars</string>
+    <string name="pref_backup">Import, restore, native and Nova XML, KWGT and daily backups</string>
+    <string name="pref_feed">Your Feed: RSS, Atom and swipe-right panel</string>
+    <string name="pref_glass">Glass theme: material, opaque, frosted, liquid, wallpaper, blur radius, intensity and overlay</string>
+    <string name="pref_gestures">Gestures: home, icon actions, folders and accessibility</string>
+    <string name="pref_dock">Dock: slots, pages, search pill and pinned apps</string>
+    <string name="pref_grid">Workspace: gridless, columns, rows, pages and placement</string>
 </resources>

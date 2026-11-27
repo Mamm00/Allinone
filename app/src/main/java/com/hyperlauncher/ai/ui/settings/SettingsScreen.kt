@@ -2,6 +2,8 @@ package com.hyperlauncher.ai.ui.settings
 
 import android.content.Intent
 import android.provider.Settings
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -33,15 +35,16 @@ import com.hyperlauncher.ai.BuildConfig
 import com.hyperlauncher.ai.R
 
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
+fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onWorkspacePreferences: ()->Unit = onBack) {
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
+    var query by remember { mutableStateOf("") }
     var apiKeyInput by remember { mutableStateOf("") }
     var modelInput by remember(state.openRouterModel) { mutableStateOf(state.openRouterModel) }
     val isNetworkFlavor = BuildConfig.FLAVOR == "network"
 
     Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)
+        modifier = Modifier.fillMaxSize().systemBarsPadding().imePadding().verticalScroll(rememberScrollState()).padding(16.dp)
     ) {
         Row(modifier = Modifier.fillMaxWidth()) {
             OutlinedButton(onClick = onBack) { Text("Back") }
@@ -53,6 +56,10 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
         }
         Spacer(modifier = Modifier.height(12.dp))
 
+        OutlinedTextField(query,{query=it},singleLine=true,label={Text(stringResource(R.string.search_preferences))},modifier=Modifier.fillMaxWidth())
+        if(matchesPreference(stringResource(R.string.pref_appearance)+stringResource(R.string.pref_backup)+stringResource(R.string.pref_feed)+stringResource(R.string.pref_glass)+stringResource(R.string.pref_gestures)+stringResource(R.string.pref_dock)+stringResource(R.string.pref_grid),query))
+            OutlinedButton(onWorkspacePreferences) {Text("Home layout, widgets, gestures, theme, feed and backup preferences")}
+        if(matchesPreference(stringResource(R.string.settings_network)+" "+stringResource(R.string.openrouter_model)+" "+stringResource(R.string.openrouter_key_title),query)) {
         Text(
             text = stringResource(R.string.settings_network),
             style = MaterialTheme.typography.titleLarge
@@ -88,6 +95,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
                 onValueChange = { apiKeyInput = it },
                 label = { Text(stringResource(R.string.openrouter_key_hint)) },
                 singleLine = true,
+                visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
                 modifier = Modifier.fillMaxWidth()
             )
             Button(
@@ -111,6 +119,8 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 
+        }
+        if(matchesPreference(stringResource(R.string.settings_privacy)+" "+stringResource(R.string.accessibility_title)+" "+stringResource(R.string.accessibility_whitelist),query)) {
         Text(
             text = stringResource(R.string.settings_privacy),
             style = MaterialTheme.typography.titleLarge
@@ -148,6 +158,8 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 
+        }
+        if(matchesPreference(stringResource(R.string.floating_pill_title),query)) {
         Text(
             text = stringResource(R.string.floating_pill_title),
             style = MaterialTheme.typography.titleLarge
@@ -171,6 +183,8 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
 
         HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
 
+        }
+        if(matchesPreference(stringResource(R.string.settings_about),query)) {
         Text(
             text = stringResource(R.string.settings_about),
             style = MaterialTheme.typography.titleLarge
@@ -181,5 +195,6 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
                 if (isNetworkFlavor) R.string.about_network else R.string.about_offline
             )
         )
+        }
     }
 }

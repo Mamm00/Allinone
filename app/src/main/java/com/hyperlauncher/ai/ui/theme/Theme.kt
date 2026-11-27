@@ -1,5 +1,7 @@
 package com.hyperlauncher.ai.ui.theme
 
+import com.hyperlauncher.ai.ui.appearance.*
+import androidx.compose.runtime.CompositionLocalProvider
 import android.app.WallpaperColors
 import android.app.WallpaperManager
 import android.os.Build
@@ -25,7 +27,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 @Composable
-fun HyperLauncherAITheme(ambient: Boolean = true, content: @Composable () -> Unit) {
+fun HyperLauncherAITheme(ambient: Boolean = true, appearance: Map<String,String> = emptyMap(), content: @Composable () -> Unit) {
     val context = LocalContext.current
     val dark = isSystemInDarkTheme()
     val manager = remember(context) { WallpaperManager.getInstance(context) }
@@ -64,5 +66,26 @@ fun HyperLauncherAITheme(ambient: Boolean = true, content: @Composable () -> Uni
             else -> lightColorScheme()
         }
     }
-    MaterialTheme(colorScheme = scheme, typography = HyperTypography, content = content)
+    val uiFont=appearanceFont(appearance)
+    val clockFont=appearanceFont(appearance,true)
+    val typography=HyperTypography.copy(
+        displayLarge=HyperTypography.displayLarge.withAppearance(uiFont,appearance),
+        displayMedium=HyperTypography.displayMedium.withAppearance(uiFont,appearance),
+        displaySmall=HyperTypography.displaySmall.withAppearance(uiFont,appearance),
+        headlineLarge=HyperTypography.headlineLarge.withAppearance(uiFont,appearance),
+        headlineMedium=HyperTypography.headlineMedium.withAppearance(uiFont,appearance),
+        headlineSmall=HyperTypography.headlineSmall.withAppearance(uiFont,appearance),
+        titleLarge=HyperTypography.titleLarge.withAppearance(uiFont,appearance),
+        titleMedium=HyperTypography.titleMedium.withAppearance(uiFont,appearance),
+        titleSmall=HyperTypography.titleSmall.withAppearance(uiFont,appearance),
+        bodyLarge=HyperTypography.bodyLarge.withAppearance(uiFont,appearance),
+        bodyMedium=HyperTypography.bodyMedium.withAppearance(uiFont,appearance),
+        bodySmall=HyperTypography.bodySmall.withAppearance(uiFont,appearance),
+        labelLarge=HyperTypography.labelLarge.withAppearance(uiFont,appearance),
+        labelMedium=HyperTypography.labelMedium.withAppearance(uiFont,appearance),
+        labelSmall=HyperTypography.labelSmall.withAppearance(uiFont,appearance)
+    )
+    CompositionLocalProvider(LocalAppearance provides appearance,LocalClockFont provides clockFont) {
+        MaterialTheme(colorScheme=scheme,typography=typography,content=content)
+    }
 }

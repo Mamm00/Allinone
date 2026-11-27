@@ -30,6 +30,8 @@ class LauncherViewModelTest {
         `when`(repository.observeApps()).thenReturn(apps)
         `when`(repository.observeCategories()).thenReturn(MutableStateFlow(emptyList<Category>()))
         `when`(settings.drawerPreferences).thenReturn(MutableStateFlow(DrawerPreferences()))
+        `when`(settings.hiddenPackages).thenReturn(MutableStateFlow(emptySet()))
+        `when`(settings.hiddenPinConfigured).thenReturn(MutableStateFlow(false))
         `when`(repository.getCategories()).thenReturn(emptyList())
         `when`(repository.refreshInstalledApps()).thenReturn(2)
         val vm = LauncherViewModel(repository, settings, StandardTestDispatcher(testScheduler))

@@ -1,5 +1,9 @@
 package com.hyperlauncher.ai.ui.workspace
 
+import com.hyperlauncher.ai.ui.appearance.*
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
 import androidx.activity.compose.BackHandler
 import android.app.WallpaperManager
 import android.graphics.BitmapFactory
@@ -63,7 +67,7 @@ import kotlin.math.roundToInt
 
 @Composable
 fun WorkspaceScreen(model: WorkspaceViewModel, apps: List<AppInfo>, onDrawer: () -> Unit,
-                    onSettings: () -> Unit, onLaunch: (String) -> Unit) {
+                    onSettings: () -> Unit, onLaunch: (String) -> Unit,preferencesRequest: Int=0) {
     val context = LocalContext.current
     val config = LocalConfiguration.current
     val adaptive=rememberAdaptiveSetup()
@@ -76,6 +80,7 @@ fun WorkspaceScreen(model: WorkspaceViewModel, apps: List<AppInfo>, onDrawer: ()
     fun save(value: WorkspaceLayout) { layout = value; model.save(value) }
     var edit by rememberSaveable { mutableStateOf(false) }
     var preferences by remember { mutableStateOf(false) }
+    LaunchedEffect(preferencesRequest) {if(preferencesRequest>0) preferences=true}
     var widgetTarget by rememberSaveable { mutableStateOf<String?>(null) }
     var picking by rememberSaveable { mutableStateOf(false) }
     var pin by remember { mutableStateOf(false) }
@@ -87,6 +92,18 @@ fun WorkspaceScreen(model: WorkspaceViewModel, apps: List<AppInfo>, onDrawer: ()
     var builtins by remember {mutableStateOf(false)}
     var feeding by rememberSaveable {mutableStateOf(false)}
     var backupDialog by remember {mutableStateOf(false)}
+    var appearanceDialog by remember {mutableStateOf(false)}
+    val appearance=LocalAppearance.current
+    DisposableEffect(appearance["immersive"]) {
+        val activity=context as? android.app.Activity
+        val controller=activity?.window?.let {WindowCompat.getInsetsController(it,it.decorView)}
+        if(appearance["immersive"]=="true") {
+            controller?.systemBarsBehavior=WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            controller?.hide(WindowInsetsCompat.Type.systemBars())
+        }
+        onDispose {controller?.show(WindowInsetsCompat.Type.systemBars())}
+    }
+
     val host = remember { AppWidgetHost(context.applicationContext, 0x48594c) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     DisposableEffect(host, lifecycle) {
@@ -141,7 +158,8 @@ fun WorkspaceScreen(model: WorkspaceViewModel, apps: List<AppInfo>, onDrawer: ()
             action=="screenOff" -> if(!GestureAccessibilityService.perform(AccessibilityService.GLOBAL_ACTION_LOCK_SCREEN)) unavailable()
             action=="recents" -> if(!GestureAccessibilityService.perform(AccessibilityService.GLOBAL_ACTION_RECENTS)) unavailable()
             action.startsWith("app:") -> {
-                val intent=context.packageManager.getLaunchIntentForPackage(action.removePrefix("app:"))
+                val pkg=action.removePrefix("app:")
+                val intent=if(apps.any {it.packageName==pkg}) context.packageManager.getLaunchIntentForPackage(pkg) else null
                 val view=(context as? android.app.Activity)?.window?.decorView
                 if(intent!=null) runCatching {
                     val options=view?.let { ActivityOptions.makeClipRevealAnimation(it,origin.x.toInt(),origin.y.toInt(),1,1).toBundle() }
@@ -212,14 +230,17 @@ fun WorkspaceScreen(model: WorkspaceViewModel, apps: List<AppInfo>, onDrawer: ()
             }
             if (layout.options["dockSearch"] != "false") FilledTonalButton({searching=true},Modifier.fillMaxWidth().padding(horizontal=16.dp)) { Text("Search apps, contacts and web") }
             val slots=(layout.options["dockSlots"]?.toIntOrNull() ?: 5).coerceIn(4,6)
-            val dock=layout.dockApps
+            val dock=layout.dockApps.filter {pkg->apps.any {it.packageName==pkg}}
             val dockPager=rememberPagerState(pageCount={ ((dock.size+slots-1)/slots).coerceAtLeast(1) })
             HorizontalPager(dockPager,modifier=Modifier.fillMaxWidth().height(64.dp)) { dockPage ->
                 Row(Modifier.fillMaxSize(),horizontalArrangement=Arrangement.SpaceEvenly) {
                     repeat(slots) { slot ->
                         val pkg=dock.getOrNull(dockPage*slots+slot)
                         TextButton({ if (pkg==null || edit) {pinDock=true;pin=true} else onLaunch(pkg) },Modifier.weight(1f)) {
-                            Text(pkg?.let { name -> apps.firstOrNull { it.packageName==name }?.label } ?: "+",maxLines=2)
+                            Column(horizontalAlignment=Alignment.CenterHorizontally) {
+                                apps.firstOrNull {it.packageName==pkg}?.let {AppIcon(it,26.dp)}
+                                Text(pkg?.let {name->apps.firstOrNull {it.packageName==name}?.label} ?: "+",maxLines=1)
+                            }
                         }
                     }
                 }
@@ -231,6 +252,7 @@ fun WorkspaceScreen(model: WorkspaceViewModel, apps: List<AppInfo>, onDrawer: ()
             }
         }
     }
+    if(appearanceDialog) AppearanceDialog(onDismiss={appearanceDialog=false})
     if(backupDialog && BuildConfig.ENABLE_IMPORT) BackupDialog(setup,
         onKwgt={uris ->save(layout.option("kwgtExports",JsonArray(uris.map {JsonPrimitive(it)}).toString()))},onDismiss={backupDialog=false})
     if(builtins) AlertDialog(onDismissRequest={builtins=false},title={Text("Built-in widget")},text={Column {
@@ -242,7 +264,7 @@ fun WorkspaceScreen(model: WorkspaceViewModel, apps: List<AppInfo>, onDrawer: ()
     iconPrefs?.let { item -> GesturePreferences(layout.options,apps,prefix="icon_${item.id}_",onSet={key,value -> save(layout.option(key,value))},onDismiss={iconPrefs=null}) }
     folder?.let { item -> AlertDialog(onDismissRequest={folder=null},title={Text("Folder")},text={
         Column(Modifier.heightIn(max=350.dp).verticalScroll(rememberScrollState())) {
-            item.packageName.split('|').forEach {pkg -> TextButton({onLaunch(pkg);folder=null}) {Text(apps.firstOrNull {it.packageName==pkg}?.label ?: pkg)} }
+            item.packageName.split('|').filter {pkg->apps.any {it.packageName==pkg}}.forEach {pkg -> TextButton({onLaunch(pkg);folder=null}) {Text(apps.firstOrNull {it.packageName==pkg}?.label ?: pkg)} }
         }
     },confirmButton={TextButton({folder=null}){Text("Close")}}) }
     val message by model.error.collectAsState()
@@ -263,46 +285,12 @@ fun WorkspaceScreen(model: WorkspaceViewModel, apps: List<AppInfo>, onDrawer: ()
                 pin = false
             }) { Text(app.label) } }
         } }, confirmButton = { TextButton({ pin = false }) { Text("Cancel") } })
-    if (preferences) AlertDialog(onDismissRequest = { preferences = false }, title = { Text("Layout for this display/orientation") },
-        text = { Column(Modifier.verticalScroll(rememberScrollState())) {
-            if(BuildConfig.ENABLE_IMPORT) TextButton({backupDialog=true}) {Text("Import / backup / daily snapshots")}
-            if(BuildConfig.ENABLE_FEED) {
-                Text("Swipe right from first home page to Your Feed (off by default)")
-                Switch(layout.options["feedEnabled"]=="true",{save(layout.option("feedEnabled",it.toString()))})
-                TextButton({feeding=true;preferences=false}) {Text("Open Your Feed")}
-            }
-            if(BuildConfig.ENABLE_GLASS) {
-                Text("Widget theme")
-                listOf("material","opaque","frosted","liquid").forEach {theme -> TextButton({save(layout.option("theme",theme))}) {Text(theme)} }
-                TextButton({wallpaperPicker.launch(arrayOf("image/*"))}) {Text("Choose wallpaper for glass sampling")}
-                Text("Wallpaper pixels may be restricted by Android. Choose/apply an image here for correctly aligned blur. No storage permission or image upload is used.")
-                Text("Blur radius")
-                Slider(layout.options["blur"]?.toFloatOrNull() ?:16f,{save(layout.option("blur",it.toString()))},valueRange=0f..50f)
-                Text("Glass intensity")
-                Slider(layout.options["glassIntensity"]?.toFloatOrNull() ?:.4f,{save(layout.option("glassIntensity",it.toString()))})
-                Text("Dark overlay opacity")
-                Slider(layout.options["overlay"]?.toFloatOrNull() ?:.2f,{save(layout.option("overlay",it.toString()))},valueRange=0f.. .85f)
-            }
-            TextButton({gesturePrefs=true}) {Text("Home gesture assignments")}
-            TextButton({
-                save(layout.copy(items=layout.items+Placement(page=logical,kind="folder",packageName=layout.dockApps.joinToString("|"),width=.3f,height=.15f)))
-            },enabled=layout.dockApps.size>=2) {Text("Create folder from dock apps")}
-            Text("Dock slots: ${layout.options["dockSlots"] ?: "5"}")
-            Slider((layout.options["dockSlots"]?.toFloatOrNull() ?: 5f),{save(layout.option("dockSlots",it.roundToInt().toString()))},valueRange=4f..6f,steps=1)
-            Text("Dock search pill")
-            Switch(layout.options["dockSearch"]!="false",{save(layout.option("dockSearch",it.toString()))})
-            TextButton({pinDock=true;pin=true;preferences=false}) {Text("Add another dock app/page")}
-            TextButton({save(layout.option("dock",""))}) {Text("Clear dock")}
-            Text("Gridless placement (default). Disable to align moves to the configured grid.")
-            Switch(layout.gridless, { save(layout.copy(gridless = it)) })
-            Text("Columns: ${layout.columns}")
-            Slider(layout.columns.toFloat(), { save(layout.copy(columns = it.roundToInt())) }, valueRange = 2f..8f, steps = 5)
-            Text("Rows: ${layout.rows}")
-            Slider(layout.rows.toFloat(), { save(layout.copy(rows = it.roundToInt())) }, valueRange = 2f..12f, steps = 9)
-            Text("Pages: ${layout.pages}")
-            Slider(layout.pages.toFloat(), { save(layout.copy(pages = it.roundToInt())) }, valueRange = 1f..7f, steps = 5)
-            Text("Reducing page count hides extra pages; it does not delete their contents. Swipe from the last page to wrap to the first.")
-        } }, confirmButton = { TextButton({ preferences = false }) { Text("Done") } })
+    if(preferences) WorkspacePreferencesDialog(layout,onSave=::save,
+        onBackup={backupDialog=true},onFeed={feeding=true;preferences=false},
+        onWallpaper={wallpaperPicker.launch(arrayOf("image/*"))},onGestures={gesturePrefs=true},
+        onFolder={save(layout.copy(items=layout.items+Placement(page=logical,kind="folder",packageName=layout.dockApps.joinToString("|"),width=.3f,height=.15f)))},
+        onAddDock={pinDock=true;pin=true;preferences=false},onAppearance={appearanceDialog=true},onDismiss={preferences=false})
+
 }
 
 @Composable
@@ -319,7 +307,7 @@ fun WorkspacePage(layout: WorkspaceLayout, page: Int, edit: Boolean, host: AppWi
         val heightPx = with(density) { pageHeight.toPx() }
         if (layout.items.none { it.page == page }) Text("Your space. Tap Edit to add apps or widgets.",
             Modifier.align(Alignment.Center).padding(24.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
-        layout.items.filter { it.page == page }.forEach { item -> key(item.id) {
+        layout.items.filter { it.page == page && (it.kind!="app" || apps.any {app->app.packageName==it.packageName}) }.forEach { item -> key(item.id) {
             var position by remember(item) { mutableStateOf(item) }
             fun commit() {
                 val value = if (layout.gridless) position else position.copy(
@@ -343,7 +331,10 @@ fun WorkspacePage(layout: WorkspaceLayout, page: Int, edit: Boolean, host: AppWi
                             .pointerInput(item.id,edit) { if(!edit) detectDragGestures(onDragStart={drag=Offset.Zero},onDragEnd={
                                 if(drag.getDistance()>30.dp.toPx()) onIconGesture(item,GestureMath.direction(drag.x,drag.y),origin)
                             }) {change,amount -> change.consume();drag+=amount} },contentAlignment=Alignment.Center) {
-                            Text(if(item.kind=="folder") "▦ Folder" else apps.firstOrNull {it.packageName==item.packageName}?.label ?: item.packageName)
+                            Column(horizontalAlignment=Alignment.CenterHorizontally) {
+                                apps.firstOrNull {it.packageName==item.packageName}?.let {AppIcon(it,36.dp)}
+                                Text(if(item.kind=="folder") "▦ Folder" else apps.firstOrNull {it.packageName==item.packageName}?.label ?: item.packageName,maxLines=1)
+                            }
                         }
                     }
                     else -> if (item.widgets.isNotEmpty()) {

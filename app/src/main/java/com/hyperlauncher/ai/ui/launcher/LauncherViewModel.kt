@@ -29,7 +29,8 @@ data class LauncherUiState(
     val errorMessage: String? = null,
     val preferences: DrawerPreferences = DrawerPreferences(),
     val badgeCounts: Map<String, Int> = emptyMap(),
-    val allApps: List<AppInfo> = emptyList()
+    val allApps: List<AppInfo> = emptyList(),
+    val hiddenApps: List<AppInfo> = emptyList()
 )
 
 class LauncherViewModel(
@@ -42,13 +43,13 @@ class LauncherViewModel(
     private val error = MutableStateFlow<String?>(null)
     private var refreshJob: Job? = null
     private val content = combine(repository.observeApps(), repository.observeCategories(),
-        settings.drawerPreferences, selection) { apps, categories, preferences, selected ->
+        settings.drawerPreferences, selection, settings.hiddenPackages) { apps, categories, preferences, selected, hidden ->
         val effective = apps.map {
             if (!preferences.autoCategorize && !it.hasManualCategory) it.copy(categoryId = "others") else it
         }
         LauncherUiState(
-            apps = filterDrawerApps(effective, selected.query, selected.category, preferences.alphabetical),
-            allApps = effective, categories = categories, selectedCategoryId = selected.category,
+            apps = filterDrawerApps(effective.filterNot {it.packageName in hidden}, selected.query, selected.category, preferences.alphabetical),
+            allApps = effective.filterNot {it.packageName in hidden}, hiddenApps = effective.filter {it.packageName in hidden}, categories = categories, selectedCategoryId = selected.category,
             searchQuery = selected.query, preferences = preferences
         )
     }.flowOn(filterDispatcher)
@@ -85,6 +86,10 @@ class LauncherViewModel(
         if (repository.launchApp(packageName)) repository.recordLaunch(packageName)
         else error.value = "Android could not open this app. Check its system app settings."
     }
+    val hiddenPinConfigured=settings.hiddenPinConfigured
+    suspend fun createPin(pin: String) = settings.createHiddenPin(pin)
+    suspend fun unlockHidden(pin: String): Boolean = settings.unlockHidden(pin)
+    fun hideApp(pkg: String,hidden: Boolean) = action {settings.setAppHidden(pkg,hidden)}
     fun clearError() { error.value = null }
     private fun action(block: suspend () -> Unit) {
         viewModelScope.launch {

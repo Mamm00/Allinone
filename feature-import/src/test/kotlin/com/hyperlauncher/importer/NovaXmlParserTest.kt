@@ -11,3 +11,11 @@ class NovaXmlParserTest {
     @Test(expected=IllegalArgumentException::class) fun rejectsEntities() {NovaXmlParser.parse("<!DOCTYPE foo><favorites/>")}
     @Test(expected=IllegalArgumentException::class) fun rejectsUnrecognizedFormat() {NovaXmlParser.parse("<unrelated/>")}
 }
+
+class IconPackParserTest {
+    @org.junit.Test fun acceptsComponentInfoFormsAndCalendarPrefix() {
+        val mapping=IconPackParser.parse("""<resources><item component="ComponentInfo(com.example/.Main)" drawable="example"/><calendar component="ComponentInfo{com.calendar/com.calendar.Main}" prefix="cal_"/></resources>""")
+        org.junit.Assert.assertEquals("example",mapping.icons["com.example/com.example.Main"])
+        org.junit.Assert.assertEquals("cal_",mapping.calendars["com.calendar/com.calendar.Main"])
+    }
+}

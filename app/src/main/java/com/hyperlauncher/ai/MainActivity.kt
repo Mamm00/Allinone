@@ -51,9 +51,12 @@ class MainActivity : ComponentActivity() {
             android.util.Log.d("HyperLauncher", "Cold start: ${elapsed}ms")
         }
 
+        androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window,false)
         setContent {
+            val appearance by container.settingsRepository.appearance.collectAsState(emptyMap())
             val drawerPreferences by container.settingsRepository.drawerPreferences.collectAsState(DrawerPreferences())
-            HyperLauncherAITheme(ambient = drawerPreferences.ambient) {
+            HyperLauncherAITheme(ambient = drawerPreferences.ambient,appearance=appearance) {
+                var preferencesRequest by remember {mutableStateOf(0)}
                 var destination by rememberSaveable { mutableStateOf(Destination.HOME) }
 
                 val launcherViewModel: LauncherViewModel = viewModel(
@@ -112,7 +115,7 @@ class MainActivity : ComponentActivity() {
                 when (destination) {
                     Destination.HOME -> WorkspaceScreen(workspaceViewModel, launcherState.allApps,
                         onDrawer = { launcherViewModel.load(); destination = Destination.LAUNCHER },
-                        onSettings = { destination = Destination.SETTINGS }, onLaunch = launcherViewModel::onAppLaunched)
+                        onSettings = { destination = Destination.SETTINGS }, onLaunch = launcherViewModel::onAppLaunched,preferencesRequest=preferencesRequest)
                     Destination.LAUNCHER -> {
                         LauncherScreen(
                             viewModel = launcherViewModel,
@@ -124,7 +127,8 @@ class MainActivity : ComponentActivity() {
                     Destination.SETTINGS -> {
                         SettingsScreen(
                             viewModel = settingsViewModel,
-                            onBack = { destination = Destination.HOME }
+                            onBack = { destination = Destination.HOME },
+                            onWorkspacePreferences={preferencesRequest++;destination=Destination.HOME}
                         )
                     }
                     Destination.VAULT -> {

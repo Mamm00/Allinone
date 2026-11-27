@@ -1,5 +1,6 @@
 package com.hyperlauncher.ai.ui.workspace
 
+import com.hyperlauncher.ai.ui.appearance.LocalClockFont
 import android.Manifest
 import android.app.AlarmManager
 import android.content.*
@@ -82,7 +83,7 @@ fun BuiltInWidget(item: Placement,options: Map<String,String>,onOption: (String,
     Column(Modifier.fillMaxSize().padding(12.dp),verticalArrangement=Arrangement.Center,horizontalAlignment=Alignment.CenterHorizontally) {
         when(item.kind) {
             "clock" -> {
-                Text(DateFormat.getTimeFormat(context).format(java.util.Date(now)),style=MaterialTheme.typography.headlineLarge)
+                Text(DateFormat.getTimeFormat(context).format(java.util.Date(now)),style=MaterialTheme.typography.headlineLarge.copy(fontFamily=LocalClockFont.current))
                 Text(DateFormat.getMediumDateFormat(context).format(java.util.Date(now)),style=MaterialTheme.typography.bodySmall)
                 val alarm=(context.getSystemService(Context.ALARM_SERVICE) as AlarmManager).nextAlarmClock
                 alarm?.let {Text("Alarm: "+DateFormat.getTimeFormat(context).format(java.util.Date(it.triggerTime)),style=MaterialTheme.typography.bodySmall)}

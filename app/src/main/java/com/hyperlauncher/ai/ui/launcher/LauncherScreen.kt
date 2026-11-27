@@ -1,5 +1,6 @@
 package com.hyperlauncher.ai.ui.launcher
 
+import com.hyperlauncher.ai.ui.appearance.AppIcon
 import android.content.Intent
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -48,6 +49,7 @@ fun LauncherScreen(
     val state by viewModel.uiState.collectAsState()
     var editingApp by remember { mutableStateOf<AppInfo?>(null) }
     var options by remember { mutableStateOf(false) }
+    var hidden by remember {mutableStateOf(false)}
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -82,10 +84,11 @@ fun LauncherScreen(
                             Uri.parse("package:${app.packageName}"))) }
                     } else viewModel.onAppLaunched(app.packageName)
                 }, onEdit = { editingApp = it }, onOptions = { options = true },
-                onSettings = onOpenSettings, onVault = onOpenVault, aiPromptBar = aiPromptBar)
+                onSettings = onOpenSettings, onVault = onOpenVault, aiPromptBar = aiPromptBar, onHidden={hidden=true})
             SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter))
         }
     }
+    if(hidden) HiddenAppsDialog(viewModel,state,onDismiss={hidden=false})
     editingApp?.let { app ->
         ChangeCategoryDialog(app, state, onDismiss = { editingApp = null }) { category, similar ->
             viewModel.changeCategory(app.packageName, category, similar)
@@ -106,7 +109,8 @@ fun DrawerContent(
     onOptions: () -> Unit,
     onSettings: () -> Unit,
     onVault: () -> Unit,
-    aiPromptBar: @Composable () -> Unit = {}
+    aiPromptBar: @Composable () -> Unit = {},
+    onHidden: ()->Unit = {}
 ) {
     Column(Modifier.fillMaxSize().padding(horizontal = 16.dp)) {
         Text(stringResource(R.string.drawer_title), style = MaterialTheme.typography.headlineMedium,
@@ -119,6 +123,7 @@ fun DrawerContent(
             TextButton(onSettings, Modifier.weight(1f)) { Text(stringResource(R.string.settings_title)) }
             TextButton(onVault, Modifier.weight(1f)) { Text(stringResource(R.string.vault_short)) }
         }
+        TextButton(onHidden) {Text("Hidden apps") }
         if (!state.preferences.alphabetical) {
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 item { FilterChip(state.selectedCategoryId == "all", { onCategory("all") },
@@ -154,11 +159,6 @@ fun DrawerContent(
 @Composable
 fun AppRow(app: AppInfo, count: Int = 0, showState: Boolean = true,
            onClick: () -> Unit, onLongClick: () -> Unit = {}) {
-    val icon by produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, app.iconPng) {
-        value = withContext(Dispatchers.IO) {
-            app.iconPng?.let { runCatching { BitmapFactory.decodeByteArray(it, 0, it.size)?.asImageBitmap() }.getOrNull() }
-        }
-    }
     val inactive = app.isSuspended || app.isArchived
     ListItem(
         headlineContent = { Text(app.label, maxLines = 2, overflow = TextOverflow.Ellipsis) },
@@ -167,12 +167,7 @@ fun AppRow(app: AppInfo, count: Int = 0, showState: Boolean = true,
                 if (app.isArchived) R.string.app_archived else R.string.app_paused))
         },
         leadingContent = {
-            Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
-                val bitmap = icon
-                if (bitmap != null) Image(bitmap, contentDescription = null, modifier = Modifier.size(44.dp),
-                    colorFilter = if (app.isSuspended) ColorFilter.colorMatrix(ColorMatrix().apply { setToSaturation(0f) }) else null)
-                else Text(app.label.take(1), style = MaterialTheme.typography.titleLarge)
-            }
+            AppIcon(app,44.dp)
         },
         trailingContent = {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {

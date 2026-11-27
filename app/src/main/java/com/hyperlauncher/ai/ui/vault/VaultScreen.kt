@@ -1,6 +1,8 @@
 package com.hyperlauncher.ai.ui.vault
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
