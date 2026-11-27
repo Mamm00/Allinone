@@ -19,6 +19,19 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+      - name: Require and validate signing secrets
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          python3 scripts/prepare-signing.py
+          keytool -exportcert -keystore app/release.keystore -alias "$KEY_ALIAS" \
+            -storepass:env KEYSTORE_PASSWORD -file "$RUNNER_TEMP/signing-cert.der"
+          echo "EXPECTED_SIGNER_SHA256=$(sha256sum "$RUNNER_TEMP/signing-cert.der" | cut -d' ' -f1)" >> "$GITHUB_ENV"
+          echo "::notice::All four signing secrets are present; keystore password and alias validated."
+
       - name: Setup Android SDK
         run: |
           echo "ANDROID_HOME=$ANDROID_HOME"
@@ -26,7 +39,8 @@ jobs:
           export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
           sdkmanager --list_installed || true
           yes | sdkmanager --licenses || true
-          sdkmanager "platforms;android-37" "platforms;android-36" "platforms;android-34" "build-tools;37.0.0" "build-tools;36.0.0" "build-tools;34.0.0" "platform-tools"
+          sdkmanager "platform-tools" "build-tools;36.0.0" 2>&1 | tee /tmp/sdk-setup.log
+          # Gradle installs the compile SDK it requires using the accepted licenses.
           sdkmanager --list_installed || true
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
@@ -52,19 +66,6 @@ jobs:
               done
             fi
           fi
-
-      - name: Require and validate signing secrets
-        env:
-          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
-          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
-          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: |
-          python3 scripts/prepare-signing.py
-          keytool -exportcert -keystore app/release.keystore -alias "$KEY_ALIAS" \
-            -storepass:env KEYSTORE_PASSWORD -file "$RUNNER_TEMP/signing-cert.der"
-          echo "EXPECTED_SIGNER_SHA256=$(sha256sum "$RUNNER_TEMP/signing-cert.der" | cut -d' ' -f1)" >> "$GITHUB_ENV"
-          echo "::notice::All four signing secrets are present; keystore password and alias validated."
 
       - name: Lint
         run: ./gradlew :app:lintOfflineRelease :app:lintNetworkRelease --stacktrace || ./gradlew :app:lint --stacktrace
