@@ -36,7 +36,8 @@ class WhiteThemeUiTest {
             // Deliver the framework callback without converting ActivityScenario's
             // task into Android's unfinishable root HOME task. Real HOME delivery
             // is tested separately by the adb smoke checks outside ActivityScenario.
-            compose.activity.onNewIntent(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME))
+            androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().callActivityOnNewIntent(
+                compose.activity,Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME))
         }
         compose.waitUntil(15000) {compose.onAllNodesWithText("All apps").fetchSemanticsNodes().isNotEmpty()}
         compose.onNodeWithText("All apps").performClick()
