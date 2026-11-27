@@ -11,7 +11,8 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk=[34])
+// Palette math does not need the production Application/Android Keystore startup.
+@Config(sdk=[34], application=android.app.Application::class)
 class WhiteThemeTest {
     @Test fun everyWallpaperHueKeepsSurfacesWhiteAndTextReadable() {
         val seeds=(0..350 step 10).map {ColorUtils.HSLToColor(floatArrayOf(it.toFloat(),1f,.5f))}+listOf(null,0xff000000.toInt(),0xffffffff.toInt())
