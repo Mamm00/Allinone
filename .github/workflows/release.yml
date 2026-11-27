@@ -19,7 +19,14 @@ jobs:
           distribution: temurin
           java-version: '21'
       - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
+        run: |
+          echo "ANDROID_HOME=$ANDROID_HOME"
+          ls "$ANDROID_HOME" || true
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
+          sdkmanager --list_installed || true
+          yes | sdkmanager --licenses || true
+          sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools" || true
+          sdkmanager --list_installed || true
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
@@ -80,6 +87,7 @@ jobs:
 
       - name: Verify offline has no INTERNET permission
         run: |
+          export PATH="$ANDROID_HOME/build-tools/34.0.0:$PATH"
           APK=$(find app/build/outputs/apk/offline/release -name "*.apk" | head -1)
           aapt dump permissions "$APK" | tee /tmp/perms.txt
           if grep -q "android.permission.INTERNET" /tmp/perms.txt; then
