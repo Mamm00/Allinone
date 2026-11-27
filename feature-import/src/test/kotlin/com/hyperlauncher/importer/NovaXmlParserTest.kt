@@ -19,3 +19,10 @@ class IconPackParserTest {
         org.junit.Assert.assertEquals("cal_",mapping.calendars["com.calendar/com.calendar.Main"])
     }
 }
+
+class NovaGestureMapperTest {
+    @org.junit.Test fun mapsOnlyOperativeKnownAliases() {
+        val result=NovaGestureMapper.map(mapOf("swipe_up" to "app_drawer","double_tap" to "lock_screen","unknown" to "42","down" to "intent:#Intent;end"))
+        org.junit.Assert.assertEquals(mapOf("gesture_UP" to "drawer","gesture_DOUBLE_TAP" to "screenOff"),result)
+    }
+}

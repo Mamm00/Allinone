@@ -37,6 +37,7 @@ class WorkspaceViewModel(private val dao: WorkspaceDao) : ViewModel() {
     fun save(value: WorkspaceLayout) {
         val id = setup.value
         if (id.isEmpty() || loadedSetup.value != id) return
+        layout.value=value
         writes.trySend(id to value)
     }
 }

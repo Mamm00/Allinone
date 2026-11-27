@@ -25,3 +25,20 @@ class BackupPreviewTest {
         assertTrue(WorkspaceCodec.decode(preview.layouts.single().layoutJson).items.single().widgets.isEmpty())
     }
 }
+
+class BackupValidationTest {
+    @Test fun malformedAndAmbiguousBackupsCannotPreview()=runBlocking {
+        val backup=LauncherBackup(InstrumentationRegistry.getInstrumentation().targetContext)
+        val invalid=listOf(
+            """{"format":"HyperLauncher","version":1,"layouts":[{"setup":"a","data":null}]}""",
+            """{"format":"HyperLauncher","version":1,"layouts":[{"setup":"a","data":{"items":"bad"}}]}""",
+            """{"format":"HyperLauncher","version":1,"layouts":[{"setup":"a","data":{"pages":2}},{"setup":"a","data":{"pages":3}}]}"""
+        )
+        for(value in invalid) assertTrue(runCatching {backup.preview(ByteArrayInputStream(value.toByteArray()),"unused")}.isFailure)
+        val bytes=ByteArrayOutputStream()
+        ZipOutputStream(bytes).use {zip ->for(name in listOf("launcher.json","favorites.xml")) {
+            zip.putNextEntry(ZipEntry(name));zip.write("{}".toByteArray());zip.closeEntry()
+        }}
+        assertTrue(runCatching {backup.preview(ByteArrayInputStream(bytes.toByteArray()),"unused")}.isFailure)
+    }
+}

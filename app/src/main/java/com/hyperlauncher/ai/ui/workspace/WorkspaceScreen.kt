@@ -256,7 +256,7 @@ fun WorkspaceScreen(model: WorkspaceViewModel, apps: List<AppInfo>, onDrawer: ()
     if(backupDialog && BuildConfig.ENABLE_IMPORT) BackupDialog(setup,
         onKwgt={uris ->save(layout.option("kwgtExports",JsonArray(uris.map {JsonPrimitive(it)}).toString()))},onDismiss={backupDialog=false})
     if(builtins) AlertDialog(onDismissRequest={builtins=false},title={Text("Built-in widget")},text={Column {
-        listOf("clock","calendar","battery","music","notes","photos","rss").forEach {kind ->
+        listOf("clock","calendar","weather","battery","music","notes","photos","rss").forEach {kind ->
             TextButton({save(layout.copy(items=layout.items+Placement(page=logical,kind=kind)));builtins=false}) {Text(kind)}
         }
     }},confirmButton={TextButton({builtins=false}){Text("Cancel")}})
@@ -319,9 +319,9 @@ fun WorkspacePage(layout: WorkspaceLayout, page: Int, edit: Boolean, host: AppWi
                 .size(pageWidth*position.width, pageHeight*position.height)
                 .clip(RoundedCornerShape(20.dp)).background(MaterialTheme.colorScheme.surfaceVariant)
                 .testTag("placement_${item.id}")) {
-                if(BuildConfig.ENABLE_GLASS && layout.options["theme"] in listOf("opaque","frosted","liquid")) GlassBackdrop(item,layout.options)
+                if(BuildConfig.ENABLE_GLASS && layout.options["theme"] in listOf("frosted","liquid")) GlassBackdrop(item,layout.options)
                 when (item.kind) {
-                    "clock", "calendar", "battery", "music", "notes", "photos", "rss" -> BuiltInWidget(item,layout.options,onWidgetOption,onFeed)
+                    "clock", "calendar", "weather", "battery", "music", "notes", "photos", "rss" -> BuiltInWidget(item,layout.options,onWidgetOption,onFeed)
                     "app", "folder" -> {
                         var origin by remember {mutableStateOf(Offset.Zero)}
                         var drag by remember {mutableStateOf(Offset.Zero)}

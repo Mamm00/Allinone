@@ -106,6 +106,7 @@ fun BuiltInWidget(item: Placement,options: Map<String,String>,onOption: (String,
                 bitmap?.let {Image(it.asImageBitmap(),null,Modifier.weight(1f).fillMaxWidth())}
                 TextButton({photo.launch(arrayOf("image/*"))}) {Text("Choose photo")}
             }
+            "weather" -> com.hyperlauncher.ai.weather.WeatherWidget(options["weatherCoordinate"].orEmpty()) {onOption("weatherCoordinate",it)}
             "music" -> MusicWidget()
             "rss" -> TextButton(onFeed) {Text("Your Feed · read saved articles")}
         }

@@ -41,7 +41,11 @@ fun AppIcon(app: AppInfo,size: Dp=44.dp) {
             val mapping=packCache.get("$pack:$version") ?: run {
                 val xmlId=resources.getIdentifier("appfilter","xml",pack)
                 val parsed=if(xmlId==0) {
-                    val input=resources.assets.open("appfilter.xml").bufferedReader().use {it.readText()}
+                    val input=resources.assets.open("appfilter.xml").reader().use {reader ->
+                        val data=CharArray(4*1024*1024+1);var length=0
+                        while(length<data.size) {val n=reader.read(data,length,data.size-length);if(n<0) break;length+=n}
+                        require(length<=4*1024*1024);String(data,0,length)
+                    }
                     IconPackParser.parse(input)
                 } else {
                     val icons=mutableMapOf<String,String>();val calendars=mutableMapOf<String,String>()

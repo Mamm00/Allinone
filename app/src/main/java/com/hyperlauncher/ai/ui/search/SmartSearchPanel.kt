@@ -70,7 +70,7 @@ fun SmartSearchPanel(apps: List<AppInfo>, provider: String, onProvider: (String)
         }))
     }
     Surface(tonalElevation=8.dp,modifier=Modifier.fillMaxSize()) {
-        Column(Modifier.fillMaxSize().padding(16.dp).imePadding()) {
+        Column(Modifier.fillMaxSize().systemBarsPadding().padding(16.dp).imePadding()) {
             Row {
                 Text("Smart Search",style=MaterialTheme.typography.titleLarge,modifier=Modifier.weight(1f))
                 TextButton(onClose) { Text("Close") }

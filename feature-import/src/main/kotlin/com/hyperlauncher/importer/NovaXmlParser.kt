@@ -49,3 +49,20 @@ object NovaXmlParser {
         return ImportedLayout(items,dock.sortedBy {it.first}.map {it.second}.distinct(),gestures)
     }
 }
+
+/** Only documented textual aliases are translated. Unknown/private numeric actions stay unmapped. */
+object NovaGestureMapper {
+    fun map(gestures: Map<String,String>): Map<String,String> = gestures.mapNotNull {(name,action) ->
+        val key=when(name.lowercase().replace('-','_')) {
+            "up","swipe_up"->"UP";"down","swipe_down"->"DOWN";"double_tap","doubletap"->"DOUBLE_TAP"
+            "pinch_in","pinchin"->"PINCH_IN";"pinch_out","pinchout"->"PINCH_OUT"
+            "rotate_left"->"ROTATE_LEFT";"rotate_right"->"ROTATE_RIGHT";else->null
+        }
+        val value=when(action.lowercase()) {
+            "app_drawer","drawer"->"drawer";"search"->"search";"notifications","expand_notifications"->"notifications"
+            "lock","lock_screen"->"screenOff";"recents"->"recents";"widgets"->"widgets";"edit"->"edit";"none"->"none"
+            else->if(action.startsWith("app:") && action.removePrefix("app:").matches(Regex("[A-Za-z0-9_]+(\\.[A-Za-z0-9_]+)+"))) action else null
+        }
+        if(key!=null && value!=null) "gesture_$key" to value else null
+    }.toMap()
+}

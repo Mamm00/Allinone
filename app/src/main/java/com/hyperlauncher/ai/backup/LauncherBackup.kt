@@ -9,6 +9,7 @@ import com.hyperlauncher.ai.data.local.entity.CategoryEntity
 import com.hyperlauncher.ai.feed.FeedSource
 import com.hyperlauncher.ai.ui.workspace.*
 import com.hyperlauncher.importer.NovaXmlParser
+import com.hyperlauncher.importer.NovaGestureMapper
 import java.io.*
 import java.util.zip.*
 import kotlinx.coroutines.Dispatchers
@@ -70,22 +71,39 @@ class LauncherBackup(private val context: Context) {
                 val pkg=if(entry.kind=="folder") nova.items.filter {it.container==entry.id}.map {it.packageName}.filter {it.isNotBlank()}.joinToString("|") else entry.packageName
                 Placement(page=entry.page,x=entry.x,y=entry.y,width=entry.width,height=entry.height,kind=entry.kind,packageName=pkg).bounded()
             }
-            val options=nova.gestures.mapKeys {"gesture_"+it.key}+mapOf("dock" to nova.dock.joinToString("|"))
+            val mappedGestures=NovaGestureMapper.map(nova.gestures)
+            val options=mappedGestures+mapOf("dock" to nova.dock.joinToString("|"))
             val layout=WorkspaceLayout(pages=((items.maxOfOrNull {it.page} ?:0)+1).coerceIn(1,9),items=items,options=options)
-            Preview(listOf(WorkspaceEntity(currentSetup,WorkspaceCodec.encode(layout))),note="Nova XML: ${items.size} items. Widgets require Android rebinding. Only supported XML fields are mapped; review before applying.")
+            Preview(listOf(WorkspaceEntity(currentSetup,WorkspaceCodec.encode(layout))),note="Nova XML: ${items.size} items. Widgets require Android rebinding. ${mappedGestures.size} of ${nova.gestures.size} gesture fields mapped; unsupported actions are omitted. Review before applying.")
         } else {
             val root=Json.parseToJsonElement(content).jsonObject
             require(root["format"]?.jsonPrimitive?.content=="HyperLauncher" && root["version"]?.jsonPrimitive?.int==1) {"Unsupported native backup version"}
-            val layouts=root["layouts"]?.jsonArray.orEmpty().take(100).map {raw ->
+            fun array(name: String,max: Int): JsonArray {
+                val values=root[name]?.jsonArray ?:JsonArray(emptyList())
+                require(values.size<=max) {"Too many $name entries; backup was not applied"}
+                return values
+            }
+            val layouts=array("layouts",100).map {raw ->
                 val row=raw.jsonObject;val setup=row["setup"]!!.jsonPrimitive.content
                 require(setup.length in 1..200)
-                val layout=WorkspaceCodec.decode(row["data"].toString())
-                WorkspaceEntity(setup,WorkspaceCodec.encode(layout.copy(items=layout.items.map {it.copy(widgets=emptyList())})))
+                val data=row["data"]?.jsonObject ?:error("Layout data must be an object")
+                require(data.isNotEmpty()) {"Empty layout data"}
+                data["items"]?.jsonArray?.let {items ->
+                    require(items.size<=64) {"Layout contains too many items"}
+                    val ids=items.mapNotNull {it.jsonObject["id"]?.jsonPrimitive?.content}
+                    require(ids.distinct().size==ids.size) {"Duplicate placement IDs"}
+                }
+                val layout=WorkspaceCodec.decode(data.toString())
+                // URI permissions and wallpaper/font pixels do not transfer to another install.
+                val portable=layout.options.filterKeys {it!="kwgtExports" && it!="wallpaperVersion" && !it.startsWith("photo_")}
+                WorkspaceEntity(setup,WorkspaceCodec.encode(layout.copy(options=portable,items=layout.items.map {it.copy(widgets=emptyList())})))
             }
-            val categories=root["categories"]?.jsonArray.orEmpty().take(100).map {raw ->val row=raw.jsonObject;CategoryEntity(row["id"]!!.jsonPrimitive.content.take(100),row["name"]!!.jsonPrimitive.content.take(40),row["order"]!!.jsonPrimitive.int)}
-            val assignments=root["assignments"]?.jsonArray.orEmpty().take(3000).associate {raw ->val row=raw.jsonObject;row["package"]!!.jsonPrimitive.content to row["category"]!!.jsonPrimitive.content}
-            val sources=root["feedSources"]?.jsonArray.orEmpty().take(30).map {raw ->val row=raw.jsonObject;FeedSource(row["url"]!!.jsonPrimitive.content,row["name"]!!.jsonPrimitive.content)}
+            val categories=array("categories",100).map {raw ->val row=raw.jsonObject;CategoryEntity(row["id"]!!.jsonPrimitive.content.take(100),row["name"]!!.jsonPrimitive.content.take(40),row["order"]!!.jsonPrimitive.int)}
+            val assignments=array("assignments",3000).associate {raw ->val row=raw.jsonObject;row["package"]!!.jsonPrimitive.content to row["category"]!!.jsonPrimitive.content}
+            val sources=array("feedSources",30).map {raw ->val row=raw.jsonObject;FeedSource(row["url"]!!.jsonPrimitive.content,row["name"]!!.jsonPrimitive.content)}
                 .filter {com.hyperlauncher.feed.FeedParser.safeUrl(it.url)}
+            require(layouts.map {it.setupId}.distinct().size==layouts.size) {"Duplicate setup IDs"}
+            require(categories.map {it.id}.distinct().size==categories.size) {"Duplicate category IDs"}
             Preview(layouts,categories,assignments,sources,"${layouts.size} display/orientation layouts. Matching layouts will be replaced; other setups remain. Widget IDs are never transferred: rebind widgets after restore.")
         }
     }

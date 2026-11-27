@@ -26,4 +26,4 @@ fun appearanceFont(options: Map<String,String>,clock: Boolean=false): FontFamily
     return family
 }
 fun TextStyle.withAppearance(family: FontFamily,options: Map<String,String>)=copy(fontFamily=family,
-    fontWeight=FontWeight((options["fontWeight"]?.toIntOrNull() ?:400).coerceIn(100,900)))
+    fontWeight=options["fontWeight"]?.toIntOrNull()?.let {FontWeight(it.coerceIn(100,900))} ?:fontWeight)
