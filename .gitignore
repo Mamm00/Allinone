@@ -13,6 +13,7 @@ key.properties
 keystore.properties
 *.keystore.properties
 # Signing secrets - never commit
+/signing-private/
 keystore/
 *.jks
 *.keystore

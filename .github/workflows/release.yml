@@ -1,6 +1,7 @@
 name: Release
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     tags: ['v*.*.*']
@@ -25,7 +26,7 @@ jobs:
           export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
           sdkmanager --list_installed || true
           yes | sdkmanager --licenses || true
-          sdkmanager "platforms;android-37" "platforms;android-36" "platforms;android-34" "build-tools;37.0.0" "build-tools;36.0.0" "build-tools;34.0.0" "platform-tools" || true
+          sdkmanager "platforms;android-37" "platforms;android-36" "platforms;android-34" "build-tools;37.0.0" "build-tools;36.0.0" "build-tools;34.0.0" "platform-tools"
           sdkmanager --list_installed || true
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
@@ -52,18 +53,18 @@ jobs:
             fi
           fi
 
-      - name: Decode keystore
+      - name: Require and validate signing secrets
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
-          if [ -z "${{ secrets.KEYSTORE_BASE64 }}" ]; then
-            echo "KEYSTORE_BASE64 secret not set — release signing will be skipped (debug-signed artifacts only)."
-          else
-            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > app/release.keystore
-            echo "storeFile=release.keystore" > key.properties
-            echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> key.properties
-            echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> key.properties
-            echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" >> key.properties
-            echo "Keystore decoded."
-          fi
+          python3 scripts/prepare-signing.py
+          keytool -exportcert -keystore app/release.keystore -alias "$KEY_ALIAS" \
+            -storepass:env KEYSTORE_PASSWORD -file "$RUNNER_TEMP/signing-cert.der"
+          echo "EXPECTED_SIGNER_SHA256=$(sha256sum "$RUNNER_TEMP/signing-cert.der" | cut -d' ' -f1)" >> "$GITHUB_ENV"
+          echo "::notice::All four signing secrets are present; keystore password and alias validated."
 
       - name: Lint
         run: ./gradlew :app:lintOfflineRelease :app:lintNetworkRelease --stacktrace || ./gradlew :app:lint --stacktrace
@@ -74,37 +75,57 @@ jobs:
       - name: Build release APKs
         run: ./gradlew :app:assembleOfflineRelease :app:assembleNetworkRelease --stacktrace
 
-      - name: APK size gate
-        run: |
-          for APK in $(find app/build/outputs/apk -name "*release*.apk"); do
-            SIZE=$(stat -c%s "$APK")
-            echo "$APK: $SIZE bytes"
-            if [ "$SIZE" -gt 31457280 ]; then
-              echo "FAIL: $APK exceeds 30MB hard limit"
-              exit 1
-            fi
-          done
+      - name: Verify signed APKs before distribution
+        run: bash scripts/verify-release.sh
 
-      - name: Verify offline has no INTERNET permission
+      - name: Enable emulator acceleration
         run: |
-          export PATH="$ANDROID_HOME/build-tools/37.0.0:$ANDROID_HOME/build-tools/36.0.0:$ANDROID_HOME/build-tools/34.0.0:$PATH"
-          APK=$(find app/build/outputs/apk/offline/release -name "*.apk" | head -1)
-          aapt dump permissions "$APK" | tee /tmp/perms.txt
-          if grep -q "android.permission.INTERNET" /tmp/perms.txt; then
-            echo "FAIL: offline release must not declare INTERNET"
-            exit 1
-          fi
-          echo "PASS: offline release has no INTERNET"
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Verify both signed APKs install on Android 14
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          script: |
+            adb install --no-streaming release-apks/HyperLauncherAI-offline-release.apk
+            adb install --no-streaming release-apks/HyperLauncherAI-network-release.apk
+            adb shell pm path com.hyperlauncher.ai
+            adb shell pm path com.hyperlauncher.ai.network
+            echo "::notice::Both signed release APKs installed successfully on Android 14."
+
+      - name: Upload verified signed APKs
+        uses: actions/upload-artifact@v4
+        with:
+          name: HyperLauncherAI-signed-release
+          path: release-apks/*
+          if-no-files-found: error
 
       - name: Publish GitHub Release
+        if: github.event_name == 'workflow_dispatch' || github.ref_type == 'tag' || github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'v1.0.0' }}
-          name: HyperLauncher AI v1.0.0
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'v1.0.1' }}
+          target_commitish: ${{ github.sha }}
+          name: HyperLauncher AI ${{ github.ref_type == 'tag' && github.ref_name || 'v1.0.1' }}
+          body: |
+            Signed APKs fixing the invalid-package error in the unsigned v1.0.0 downloads.
+            Both APK signatures and signer identity verified with apksigner, alignment checked,
+            and both packages installed successfully on an Android 14 emulator before publication.
+            Physical Redmi testing and app runtime/performance validation remain outstanding.
+            The network flavor's OpenRouter certificate pins remain unconfigured; do not treat it as certificate-pinned.
+            Download an APK below, not the source-code ZIP. SHA256SUMS.txt provides file checksums.
           draft: false
           prerelease: false
-          files: |
-            app/build/outputs/apk/offline/release/*.apk
-            app/build/outputs/apk/network/release/*.apk
+          fail_on_unmatched_files: true
+          files: release-apks/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Remove signing material
+        if: always()
+        run: rm -f app/release.keystore key.properties "$RUNNER_TEMP/signing-cert.der"
