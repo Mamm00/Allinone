@@ -43,7 +43,7 @@ class WhiteThemeUiTest {
         compose.onNodeWithText("Vault").performClick()
         compose.onNodeWithText("AI Notes Vault").assertExists()
         assertWhiteWindow()
-        val passwords=compose.onAllNodes(isEditable() and SemanticsMatcher.keyIsDefined(androidx.compose.ui.semantics.SemanticsProperties.Password)).fetchSemanticsNodes()
+        val passwords=compose.onAllNodes(hasSetTextAction() and SemanticsMatcher.keyIsDefined(androidx.compose.ui.semantics.SemanticsProperties.Password)).fetchSemanticsNodes()
         org.junit.Assert.assertTrue("Vault passphrases must be masked",passwords.isNotEmpty())
     }
 }

@@ -29,13 +29,14 @@ data class SettingsUiState(
 )
 
 class SettingsViewModel(
-    private val context: Context,
+    context: Context,
     private val settingsRepository: SettingsRepository,
     private val keyStoreManager: KeyStoreManager,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     private val scanApps: (Context)->List<com.hyperlauncher.ai.util.LauncherAppInfo> = AppScanner::getLauncherApps
 ) : ViewModel() {
 
+    private val appContext=context.applicationContext ?:context
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
@@ -61,7 +62,7 @@ class SettingsViewModel(
         val a11y = settingsRepository.accessibilityCaptureEnabled.first()
         val whitelist = settingsRepository.whitelistedPackages.first()
         val pill = settingsRepository.floatingPillEnabled.first()
-        val apps = scanApps(context)
+        val apps = scanApps(appContext)
         _uiState.value = SettingsUiState(enabled,model,keyStoreManager.hasOpenRouterKey(),a11y,whitelist,pill,apps)
     }
     fun setOpenRouterEnabled(enabled: Boolean) = enqueue {

@@ -175,7 +175,12 @@ fun WorkspaceScreen(model: WorkspaceViewModel, apps: List<AppInfo>, onDrawer: ()
     }
     BackHandler(searching || feeding || edit) {searching=false;feeding=false;edit=false}
     Surface(Modifier.fillMaxSize().padding(adaptive.safePane), color = MaterialTheme.colorScheme.background) {
-        if(loaded!=setup) Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center) {CircularProgressIndicator()}
+        if(loaded!=setup) Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center) {
+            Column(horizontalAlignment=Alignment.CenterHorizontally) {
+                Text("Loading saved layout…")
+                if(BuildConfig.ENABLE_IMPORT) TextButton({backupDialog=true}) {Text("Restore a backup")}
+            }
+        }
         else if(feeding && BuildConfig.ENABLE_FEED) FeedScreen((context.applicationContext as HyperLauncherApp).container.database.feedDao(),onClose={feeding=false})
         else if (searching) Column(Modifier.fillMaxSize().systemBarsPadding()) {
             Box(Modifier.weight(1f)) { SmartSearchPanel(apps,
