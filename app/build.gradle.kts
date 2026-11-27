@@ -148,3 +148,12 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-test-manifest")
     debugImplementation(libs.androidx.compose.ui.tooling)
 }
+
+// Keep assertion causes visible in Actions annotations when artifact/log downloads
+// are unavailable; Gradle's default short output hides Robolectric bootstrap errors.
+tasks.withType<Test>().configureEach {
+    testLogging {
+        events("failed")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+    }
+}
