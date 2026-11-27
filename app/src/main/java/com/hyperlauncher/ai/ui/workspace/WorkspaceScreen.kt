@@ -8,6 +8,9 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import com.hyperlauncher.ai.BuildConfig
 import com.hyperlauncher.ai.HyperLauncherApp
+import com.hyperlauncher.ai.backup.BackupDialog
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonPrimitive
 import com.hyperlauncher.ai.feed.FeedScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -83,6 +86,7 @@ fun WorkspaceScreen(model: WorkspaceViewModel, apps: List<AppInfo>, onDrawer: ()
     var folder by remember { mutableStateOf<Placement?>(null) }
     var builtins by remember {mutableStateOf(false)}
     var feeding by rememberSaveable {mutableStateOf(false)}
+    var backupDialog by remember {mutableStateOf(false)}
     val host = remember { AppWidgetHost(context.applicationContext, 0x48594c) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     DisposableEffect(host, lifecycle) {
@@ -227,6 +231,8 @@ fun WorkspaceScreen(model: WorkspaceViewModel, apps: List<AppInfo>, onDrawer: ()
             }
         }
     }
+    if(backupDialog && BuildConfig.ENABLE_IMPORT) BackupDialog(setup,
+        onKwgt={uris ->save(layout.option("kwgtExports",JsonArray(uris.map {JsonPrimitive(it)}).toString()))},onDismiss={backupDialog=false})
     if(builtins) AlertDialog(onDismissRequest={builtins=false},title={Text("Built-in widget")},text={Column {
         listOf("clock","calendar","battery","music","notes","photos","rss").forEach {kind ->
             TextButton({save(layout.copy(items=layout.items+Placement(page=logical,kind=kind)));builtins=false}) {Text(kind)}
@@ -259,6 +265,7 @@ fun WorkspaceScreen(model: WorkspaceViewModel, apps: List<AppInfo>, onDrawer: ()
         } }, confirmButton = { TextButton({ pin = false }) { Text("Cancel") } })
     if (preferences) AlertDialog(onDismissRequest = { preferences = false }, title = { Text("Layout for this display/orientation") },
         text = { Column(Modifier.verticalScroll(rememberScrollState())) {
+            if(BuildConfig.ENABLE_IMPORT) TextButton({backupDialog=true}) {Text("Import / backup / daily snapshots")}
             if(BuildConfig.ENABLE_FEED) {
                 Text("Swipe right from first home page to Your Feed (off by default)")
                 Switch(layout.options["feedEnabled"]=="true",{save(layout.option("feedEnabled",it.toString()))})
@@ -342,7 +349,7 @@ fun WorkspacePage(layout: WorkspaceLayout, page: Int, edit: Boolean, host: AppWi
                     else -> if (item.widgets.isNotEmpty()) {
                         val id = item.widgets[Math.floorMod(item.activeWidget, item.widgets.size)]
                         key(id) { HostedWidget(host, id, (pageWidth*position.width).value.toInt(), (pageHeight*position.height).value.toInt()) }
-                    }
+                    } else TextButton({onStack(item)},Modifier.fillMaxSize()) {Text("Rebind imported widget")}
                 }
                 if (edit) Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.primary.copy(alpha=.08f))
                     .pointerInput(item.id, widthPx, heightPx) { detectDragGestures(onDragEnd = { commit() }) { change, amount ->

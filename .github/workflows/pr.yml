@@ -46,7 +46,7 @@ jobs:
           path: /tmp/gradle.log
       - name: Unit tests (offline debug)
         run: |
-          ./gradlew :app:testOfflineDebugUnitTest :feature-feed:test --stacktrace 2>&1 | tee /tmp/test.log
+          ./gradlew :app:testOfflineDebugUnitTest :feature-feed:test :feature-import:test --stacktrace 2>&1 | tee /tmp/test.log
           STATUS=${PIPESTATUS[0]}
           if [ $STATUS -ne 0 ]; then
             echo "=== TEST FAILURE SUMMARY ==="

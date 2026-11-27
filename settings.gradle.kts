@@ -18,3 +18,5 @@ include(":app")
 include(":feature-glass")
 
 include(":feature-feed")
+
+include(":feature-import")

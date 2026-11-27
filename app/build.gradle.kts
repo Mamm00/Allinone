@@ -23,6 +23,7 @@ android {
         targetSdk = 34
         versionCode = 2
         versionName = "1.0.1"
+        buildConfigField("boolean", "ENABLE_IMPORT", (providers.gradleProperty("enableImport").orNull ?: "true"))
         buildConfigField("boolean", "ENABLE_FEED", (providers.gradleProperty("enableFeed").orNull ?: "true"))
         buildConfigField("boolean", "ENABLE_GLASS", (providers.gradleProperty("enableGlass").orNull ?: "true"))
 
@@ -109,6 +110,7 @@ kotlin {
 dependencies {
     implementation(project(":feature-glass"))
     implementation(project(":feature-feed"))
+    implementation(project(":feature-import"))
     implementation("androidx.work:work-runtime-ktx:2.10.1")
     implementation("androidx.window:window:1.4.0")
     implementation(libs.androidx.core.ktx)
