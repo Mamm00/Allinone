@@ -110,6 +110,7 @@ dependencies {
     implementation(project(":feature-glass"))
     implementation(project(":feature-feed"))
     implementation("androidx.work:work-runtime-ktx:2.10.1")
+    implementation("androidx.window:window:1.4.0")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.compose)

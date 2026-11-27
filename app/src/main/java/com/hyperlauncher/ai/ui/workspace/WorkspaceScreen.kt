@@ -1,5 +1,6 @@
 package com.hyperlauncher.ai.ui.workspace
 
+import androidx.activity.compose.BackHandler
 import android.app.WallpaperManager
 import android.graphics.BitmapFactory
 import android.graphics.Bitmap
@@ -62,8 +63,8 @@ fun WorkspaceScreen(model: WorkspaceViewModel, apps: List<AppInfo>, onDrawer: ()
                     onSettings: () -> Unit, onLaunch: (String) -> Unit) {
     val context = LocalContext.current
     val config = LocalConfiguration.current
-    val displayId = (context as? android.app.Activity)?.windowManager?.defaultDisplay?.displayId ?: 0
-    val setup = "display_${displayId}_${if (config.screenWidthDp > config.screenHeightDp) "landscape" else "portrait"}"
+    val adaptive=rememberAdaptiveSetup()
+    val setup=adaptive.key
     LaunchedEffect(setup) { model.selectSetup(setup) }
     val stored by model.layout.collectAsState()
     val loaded by model.loadedSetup.collectAsState()
@@ -150,7 +151,8 @@ fun WorkspaceScreen(model: WorkspaceViewModel, apps: List<AppInfo>, onDrawer: ()
             }.onFailure { Toast.makeText(context,"Custom intent could not be opened",Toast.LENGTH_SHORT).show() }
         }
     }
-    Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+    BackHandler(searching || feeding || edit) {searching=false;feeding=false;edit=false}
+    Surface(Modifier.fillMaxSize().padding(adaptive.safePane), color = MaterialTheme.colorScheme.background) {
         if(feeding && BuildConfig.ENABLE_FEED) FeedScreen((context.applicationContext as HyperLauncherApp).container.database.feedDao(),onClose={feeding=false})
         else if (searching) Column(Modifier.fillMaxSize().systemBarsPadding()) {
             Box(Modifier.weight(1f)) { SmartSearchPanel(apps,
