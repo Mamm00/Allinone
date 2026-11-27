@@ -3,7 +3,7 @@
 set -euo pipefail
 : "${ANDROID_HOME:?Android SDK is required}"
 : "${EXPECTED_SIGNER_SHA256:?Expected keystore certificate fingerprint is required}"
-export PATH="$ANDROID_HOME/build-tools/37.0.0:$PATH"
+export PATH="$ANDROID_HOME/build-tools/36.0.0:$PATH"
 mkdir -p release-apks
 for flavor in offline network; do
   apk="app/build/outputs/apk/$flavor/release/app-$flavor-release.apk"
