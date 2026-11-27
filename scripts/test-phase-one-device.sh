@@ -7,6 +7,7 @@ if ./gradlew :app:connectedOfflineDebugAndroidTest --stacktrace > /tmp/phase-one
 else
   tail -100 /tmp/phase-one-device.log | while IFS= read -r line; do echo "::error::$line"; done
   find app/build/outputs/androidTest-results -name '*.xml' -exec cat {} \; 2>/dev/null | head -200 | while IFS= read -r line; do echo "::error::$line"; done
+  python3 scripts/report-test-failures.py /tmp/phase-one-device.log
   exit 1
 fi
 # The app must stay white even when Android requests a dark configuration.
@@ -16,6 +17,7 @@ if ./gradlew :app:connectedOfflineDebugAndroidTest -Pandroid.testInstrumentation
 else
   tail -100 /tmp/phase-one-device.log
   adb shell cmd uimode night no
+  python3 scripts/report-test-failures.py /tmp/phase-one-device.log
   exit 1
 fi
 adb shell cmd uimode night no

@@ -59,8 +59,14 @@ jobs:
             find app/build/test-results -name "*.xml" -exec grep -l '<failure' {} \; 2>/dev/null | while IFS= read -r report; do
               head -120 "$report" | while IFS= read -r line; do echo "::error::$line"; done
             done
+            python3 scripts/report-test-failures.py /tmp/test.log
             exit $STATUS
           fi
+      - name: Compile device regressions before release builds
+        run: |
+          ./gradlew :app:compileOfflineDebugAndroidTestKotlin --stacktrace 2>&1 | tee /tmp/device-compile.log
+          STATUS=${PIPESTATUS[0]}
+          if [ $STATUS -ne 0 ]; then python3 scripts/report-test-failures.py /tmp/device-compile.log; exit $STATUS; fi
       - name: Assemble offline debug
         run: |
           ./gradlew :app:assembleOfflineDebug --stacktrace 2>&1 | tee /tmp/asm1.log
@@ -136,6 +142,7 @@ jobs:
           else
             echo "::error::Device script was not reached: emulator provisioning or boot failed."
           fi
+          python3 scripts/report-test-failures.py /tmp/phase-one-device.log
       - name: Upload device test reports
         if: always()
         uses: actions/upload-artifact@v4
