@@ -55,6 +55,24 @@ class CategorizationEngine(private val context: Context) {
         return rules
     }
 
+    private fun defaultRules(): List<CategoryRule> {
+        return listOf(
+            CategoryRule("ai_assistants", "AI & Assistants", listOf("assistant", "gemini", "chatgpt", "copilot", "claude", "ai"), listOf("com.openai.chatgpt", "com.google.android.apps.bard")),
+            CategoryRule("social", "Social", listOf("facebook", "instagram", "twitter", "whatsapp", "telegram", "snapchat", "tiktok"), listOf("com.instagram.android", "com.facebook.katana", "com.twitter.android")),
+            CategoryRule("messaging", "Messaging", listOf("message", "sms", "messages"), listOf("com.google.android.apps.messaging")),
+            CategoryRule("media", "Media & Photos", listOf("photo", "camera", "gallery", "video", "music", "spotify", "youtube"), listOf("com.google.android.apps.photos", "com.google.android.youtube")),
+            CategoryRule("games", "Games", listOf("game", "play games"), listOf("com.google.android.play.games")),
+            CategoryRule("shopping", "Shopping", listOf("amazon", "flipkart", "shop"), listOf("com.amazon.mShop.android.shopping")),
+            CategoryRule("finance", "Finance & Banking", listOf("bank", "paytm", "phonepe", "upi", "finance", "money"), listOf("com.paytm.recharge")),
+            CategoryRule("productivity", "Productivity", listOf("notes", "keep", "docs", "sheets", "office", "notion", "todo", "calendar"), listOf("com.google.android.apps.docs")),
+            CategoryRule("travel", "Travel & Maps", listOf("maps", "uber", "ola", "zomato", "swiggy"), listOf("com.google.android.apps.maps")),
+            CategoryRule("health", "Health & Fitness", listOf("health", "fitness", "fit", "gym"), listOf("com.google.android.apps.fitness")),
+            CategoryRule("education", "Education", listOf("learn", "course", "udemy", "duolingo"), listOf("com.udemy.android")),
+            CategoryRule("tools", "Tools & Utilities", listOf("tool", "utility", "file manager", "vpn", "translate"), listOf("com.google.android.apps.translate")),
+            CategoryRule("others", "Others", emptyList(), emptyList())
+        )
+    }
+
     private fun loadRules(): List<CategoryRule> {
         return try {
             val jsonText = context.assets.open("categories.json").bufferedReader().use { it.readText() }
@@ -69,9 +87,9 @@ class CategorizationEngine(private val context: Context) {
                 CategoryRule(id = id, name = name, keywords = keywords, packages = packages)
             }
         } catch (e: IOException) {
-            emptyList()
+            defaultRules()
         } catch (e: Exception) {
-            emptyList()
+            defaultRules()
         }
     }
 }

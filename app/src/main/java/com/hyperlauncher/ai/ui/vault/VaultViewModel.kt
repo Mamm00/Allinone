@@ -3,7 +3,7 @@ package com.hyperlauncher.ai.ui.vault
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hyperlauncher.ai.data.local.KeyStoreManager
-import com.hyperlauncher.ai.data.local.VaultHelper
+import com.hyperlauncher.ai.data.local.VaultCrypto
 import com.hyperlauncher.ai.data.local.VaultNote
 import com.hyperlauncher.ai.data.repository.VaultRepository
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -39,7 +39,7 @@ class VaultViewModel(
     }
 
     fun createVault(passphrase: String, confirm: String): Boolean {
-        if (passphrase.length < VaultHelper.MIN_PASSPHRASE_LENGTH) {
+        if (passphrase.length < VaultCrypto.MIN_PASSPHRASE_LENGTH) {
             _uiState.value = _uiState.value.copy(errorMessage = "Passphrase must be at least 8 characters")
             return false
         }
@@ -48,7 +48,7 @@ class VaultViewModel(
             return false
         }
         viewModelScope.launch {
-            val hash = VaultHelper.hashPassphrase(passphrase)
+            val hash = VaultCrypto.hashPassphrase(passphrase)
             keyStoreManager.saveVaultPassphraseHash(hash)
             val ok = vaultRepository.unlock(passphrase)
             if (ok) {
@@ -65,7 +65,7 @@ class VaultViewModel(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
             val expectedHash = keyStoreManager.getVaultPassphraseHash()
-            val actualHash = VaultHelper.hashPassphrase(passphrase)
+            val actualHash = VaultCrypto.hashPassphrase(passphrase)
             if (expectedHash != null && expectedHash != actualHash) {
                 _uiState.value = _uiState.value.copy(isLoading = false, errorMessage = "Wrong passphrase")
                 return@launch

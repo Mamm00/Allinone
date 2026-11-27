@@ -5,7 +5,6 @@ import android.content.Context
 import android.database.Cursor
 import net.sqlcipher.database.SQLiteDatabase
 import net.sqlcipher.database.SQLiteOpenHelper
-import java.security.MessageDigest
 
 /**
  * SQLCipher-encrypted vault (AES-256). The database file is encrypted at rest;
@@ -23,7 +22,7 @@ class VaultHelper(context: Context) {
 
     @Synchronized
     fun unlock(passphrase: String): Boolean {
-        if (passphrase.length < MIN_PASSPHRASE_LENGTH) return false
+        if (passphrase.length < VaultCrypto.MIN_PASSPHRASE_LENGTH) return false
         return try {
             close()
             SQLiteDatabase.loadLibs(appContext)
@@ -102,15 +101,6 @@ class VaultHelper(context: Context) {
         return database.delete("vault_entries", null, null)
     }
 
-    companion object {
-        const val MIN_PASSPHRASE_LENGTH = 8
-
-        fun hashPassphrase(passphrase: String): String {
-            val digest = MessageDigest.getInstance("SHA-256")
-            val bytes = digest.digest(passphrase.toByteArray(Charsets.UTF_8))
-            return bytes.joinToString("") { "%02x".format(it) }
-        }
-    }
 }
 
 data class VaultNote(
