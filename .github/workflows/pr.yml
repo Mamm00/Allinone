@@ -46,7 +46,7 @@ jobs:
           path: /tmp/gradle.log
       - name: Unit tests (offline debug)
         run: |
-          ./gradlew :app:testOfflineDebugUnitTest --stacktrace 2>&1 | tee /tmp/test.log
+          ./gradlew :app:testOfflineDebugUnitTest :feature-feed:test --stacktrace 2>&1 | tee /tmp/test.log
           STATUS=${PIPESTATUS[0]}
           if [ $STATUS -ne 0 ]; then
             echo "=== TEST FAILURE SUMMARY ==="
@@ -101,7 +101,7 @@ jobs:
             exit 1
           fi
           echo "PASS: network APK declares INTERNET"
-      - name: Assemble release APKs (for size gate)
+      - name: Assemble release APKs
         run: |
           ./gradlew :app:assembleOfflineRelease :app:assembleNetworkRelease --stacktrace 2>&1 | tee /tmp/rel.log
           STATUS=${PIPESTATUS[0]}
@@ -111,26 +111,8 @@ jobs:
             tail -80 /tmp/rel.log | while IFS= read -r line; do echo "::error::$line"; done
             exit $STATUS
           fi
-      - name: APK size gate (<25MB target, <30MB hard, release only)
-        run: |
-          FAILED=0
-          for APK in $(find app/build/outputs/apk -path "*release*" -name "*.apk"); do
-            SIZE=$(stat -c%s "$APK")
-            echo "::error::$APK: $SIZE bytes"
-            if [ "$SIZE" -gt 31457280 ]; then
-              echo "::error::FAIL: $APK exceeds 30MB hard limit"
-              FAILED=1
-            fi
-            if [ "$SIZE" -gt 26214400 ]; then
-              echo "::error::WARN: $APK exceeds 25MB target"
-            fi
-          done
-          echo "=== DEBUG SIZES (info only) ==="
-          for APK in $(find app/build/outputs/apk -path "*debug*" -name "*.apk"); do
-            SIZE=$(stat -c%s "$APK")
-            echo "::error::DEBUG $APK: $SIZE bytes"
-          done
-          exit $FAILED
+      - name: Report APK sizes (informational, no limit)
+        run: find app/build/outputs/apk -name '*.apk' -printf '%p %s bytes\n'
       - name: Enable Android emulator acceleration
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules

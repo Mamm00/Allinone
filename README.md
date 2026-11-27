@@ -51,7 +51,7 @@ certificate-pinned, cleartext disabled).
 
 ## Performance gates
 
-- APK < 25 MB (hard 30 MB) — enforced in CI.
+- APK size is reported in CI without a hard limit (user-requested).
 - Cold start < 350 ms (hard 500 ms).
 - 60 fps drawer scroll with 120+ apps (LazyColumn, keyed items).
 - Idle RAM ≤ 80 MB.

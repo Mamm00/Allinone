@@ -6,6 +6,8 @@ import android.graphics.Bitmap
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import com.hyperlauncher.ai.BuildConfig
+import com.hyperlauncher.ai.HyperLauncherApp
+import com.hyperlauncher.ai.feed.FeedScreen
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import android.appwidget.AppWidgetHost
@@ -79,6 +81,7 @@ fun WorkspaceScreen(model: WorkspaceViewModel, apps: List<AppInfo>, onDrawer: ()
     var iconPrefs by remember { mutableStateOf<Placement?>(null) }
     var folder by remember { mutableStateOf<Placement?>(null) }
     var builtins by remember {mutableStateOf(false)}
+    var feeding by rememberSaveable {mutableStateOf(false)}
     val host = remember { AppWidgetHost(context.applicationContext, 0x48594c) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     DisposableEffect(host, lifecycle) {
@@ -93,6 +96,14 @@ fun WorkspaceScreen(model: WorkspaceViewModel, apps: List<AppInfo>, onDrawer: ()
     }
     val pager = rememberPagerState(initialPage = CircularPages.initial(layout.pages), pageCount = { Int.MAX_VALUE })
     val logical = CircularPages.logical(pager.currentPage, layout.pages)
+    LaunchedEffect(pager,layout.options["feedEnabled"]) {
+        snapshotFlow {pager.currentPage to pager.currentPageOffsetFraction}.collect {(page,offset)->
+            if(BuildConfig.ENABLE_FEED && layout.options["feedEnabled"]=="true" && CircularPages.logical(page,layout.pages)==0 && offset<-.22f) {
+                feeding=true
+                pager.scrollToPage(page)
+            }
+        }
+    }
     val scope = rememberCoroutineScope()
     val wallpaperPicker=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) {uri ->
         if(uri!=null) scope.launch {
@@ -140,7 +151,8 @@ fun WorkspaceScreen(model: WorkspaceViewModel, apps: List<AppInfo>, onDrawer: ()
         }
     }
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
-        if (searching) Column(Modifier.fillMaxSize().systemBarsPadding()) {
+        if(feeding && BuildConfig.ENABLE_FEED) FeedScreen((context.applicationContext as HyperLauncherApp).container.database.feedDao(),onClose={feeding=false})
+        else if (searching) Column(Modifier.fillMaxSize().systemBarsPadding()) {
             Box(Modifier.weight(1f)) { SmartSearchPanel(apps,
                 layout.options["provider"] ?: "https://duckduckgo.com/?q={query}",
                 onProvider={save(layout.option("provider",it))},onLaunch=onLaunch,onClose={searching=false}) }
@@ -180,7 +192,7 @@ fun WorkspaceScreen(model: WorkspaceViewModel, apps: List<AppInfo>, onDrawer: ()
                         item.widgets.forEach { host.deleteAppWidgetId(it) }
                         save(layout.copy(items = layout.items.filterNot { it.id == item.id }))
                     }, onStack = { widgetTarget = it.id; picking = true }, onLaunch = onLaunch,
-                    onWidgetOption={key,value -> save(layout.option(key,value))},onFeed={Toast.makeText(context,"Feed is not enabled yet",Toast.LENGTH_SHORT).show()},
+                    onWidgetOption={key,value -> save(layout.option(key,value))},onFeed={if(BuildConfig.ENABLE_FEED) feeding=true},
                     onIconPreferences={iconPrefs=it},onIconGesture={item,direction,origin ->
                         if(item.kind=="folder" && (direction=="UP" || direction=="OPEN")) folder=item
                         else perform(GestureMath.iconAction(item.kind,direction,layout.options["icon_${item.id}_$direction"]),origin)
@@ -245,6 +257,11 @@ fun WorkspaceScreen(model: WorkspaceViewModel, apps: List<AppInfo>, onDrawer: ()
         } }, confirmButton = { TextButton({ pin = false }) { Text("Cancel") } })
     if (preferences) AlertDialog(onDismissRequest = { preferences = false }, title = { Text("Layout for this display/orientation") },
         text = { Column(Modifier.verticalScroll(rememberScrollState())) {
+            if(BuildConfig.ENABLE_FEED) {
+                Text("Swipe right from first home page to Your Feed (off by default)")
+                Switch(layout.options["feedEnabled"]=="true",{save(layout.option("feedEnabled",it.toString()))})
+                TextButton({feeding=true;preferences=false}) {Text("Open Your Feed")}
+            }
             if(BuildConfig.ENABLE_GLASS) {
                 Text("Widget theme")
                 listOf("material","opaque","frosted","liquid").forEach {theme -> TextButton({save(layout.option("theme",theme))}) {Text(theme)} }

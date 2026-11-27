@@ -1,6 +1,7 @@
 package com.hyperlauncher.ai.data.local
 
 import android.content.Context
+import com.hyperlauncher.ai.feed.*
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
@@ -16,11 +17,12 @@ import com.hyperlauncher.ai.data.local.entity.CategoryEntity
 import com.hyperlauncher.ai.data.local.entity.LlmCacheEntity
 
 @Database(
-    entities = [AppEntity::class, CategoryEntity::class, AiPromptLogEntity::class, LlmCacheEntity::class, WorkspaceEntity::class],
-    version = 3,
+    entities = [AppEntity::class, CategoryEntity::class, AiPromptLogEntity::class, LlmCacheEntity::class, WorkspaceEntity::class, FeedSource::class, FeedArticle::class],
+    version = 4,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
+    abstract fun feedDao(): FeedDao
     abstract fun workspaceDao(): WorkspaceDao
     abstract fun appDao(): AppDao
     abstract fun categoryDao(): CategoryDao
@@ -44,6 +46,13 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("CREATE TABLE IF NOT EXISTS feed_sources (url TEXT NOT NULL PRIMARY KEY, name TEXT NOT NULL)")
+                db.execSQL("CREATE TABLE IF NOT EXISTS feed_articles (url TEXT NOT NULL PRIMARY KEY, source TEXT NOT NULL, title TEXT NOT NULL, published TEXT NOT NULL, isRead INTEGER NOT NULL, fetchedAt INTEGER NOT NULL)")
+            }
+        }
+
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
@@ -54,7 +63,7 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "hyperlauncher.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                     .build()
                 INSTANCE = instance
                 instance

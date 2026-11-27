@@ -16,3 +16,5 @@ rootProject.name = "HyperLauncher AI"
 include(":app")
 
 include(":feature-glass")
+
+include(":feature-feed")

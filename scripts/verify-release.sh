@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Verify exact signed outputs, signer identity, alignment, permissions and size.
+# Verify exact signed outputs, signer identity, alignment and permissions.
 set -euo pipefail
 : "${ANDROID_HOME:?Android SDK is required}"
 : "${EXPECTED_SIGNER_SHA256:?Expected keystore certificate fingerprint is required}"
@@ -21,8 +21,8 @@ for flavor in offline network; do
   else
     grep -q 'android.permission.INTERNET' <<< "$permissions"
   fi
-  test "$(stat -c%s "$apk")" -le 31457280
+  echo "$apk: $(stat -c%s "$apk") bytes (informational; no size cap)"
   cp "$apk" "release-apks/HyperLauncherAI-$flavor-release.apk"
-  echo "::notice::Verified $flavor: signed by expected key, aligned, permissions correct, under 30 MiB."
+  echo "::notice::Verified $flavor: signed by expected key, aligned, permissions correct."
 done
 (cd release-apks && sha256sum ./*.apk > SHA256SUMS.txt)

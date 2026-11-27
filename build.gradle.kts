@@ -1,5 +1,6 @@
 // Top-level build file for HyperLauncher AI
 plugins {
+    id("org.jetbrains.kotlin.jvm") version "2.4.10" apply false
     id("com.android.library") version "9.1.0" apply false
     id("com.android.application") version "9.1.0" apply false
     id("org.jetbrains.kotlin.android") version "2.4.10" apply false
