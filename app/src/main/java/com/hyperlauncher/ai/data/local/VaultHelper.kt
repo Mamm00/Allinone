@@ -123,7 +123,7 @@ data class VaultNote(
 
 private class VaultOpenHelper(
     context: Context
-) : SQLiteOpenHelper(context, "vault.db", null, null, 1) {
+) : SQLiteOpenHelper(context, "vault.db", null, 1, null) {
 
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
