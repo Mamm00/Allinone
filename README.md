@@ -71,10 +71,22 @@ Requires JDK 21 + Android SDK. All compilation runs in GitHub Actions CI
 
 ## Release
 
-Push to `main` or tag `v*.*.*` → `release.yml` builds both signed APKs
-and publishes a GitHub Release. Signing uses `key.properties` (gitignored)
-+ `KEYSTORE_BASE64` / `KEYSTORE_PASSWORD` / `KEY_ALIAS` / `KEY_PASSWORD`
-GitHub secrets. `OPENROUTER_API_KEY` is **never** a CI secret.
+`release.yml` requires all four Actions secrets: `KEYSTORE_BASE64`,
+`KEYSTORE_PASSWORD`, `KEY_ALIAS`, and `KEY_PASSWORD`. Signing files are ignored
+by Git and removed from the runner after the job. Missing or invalid signing
+credentials fail the release; there is no unsigned fallback.
+
+Pushes to `main` build verified signed artifacts. Version tags publish releases;
+**Actions → Release → Run workflow** publishes the signing-fix release `v1.0.1`.
+Before distribution, both APKs must pass `apksigner` verification against the
+keystore certificate, alignment, permission and size checks, and installation
+on an Android 14 emulator. This is not physical Redmi or app-runtime validation.
+`OPENROUTER_API_KEY` is **never** a CI secret.
+
+The old `v1.0.0` files ending in `-unsigned.apk` are not installable. Download
+`HyperLauncherAI-offline-release.apk` or `HyperLauncherAI-network-release.apk`
+from a verified signed release instead. Keep the original signing key securely:
+future updates must use the same key.
 
 ## Setup (Redmi 12 4G)
 

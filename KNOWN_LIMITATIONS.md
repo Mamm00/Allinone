@@ -20,8 +20,8 @@
    pins are populated and verified.** Pins are never fabricated.
 3. **Release signing requires maintainer secrets.** `KEYSTORE_BASE64`,
    `KEYSTORE_PASSWORD`, `KEY_ALIAS`, `KEY_PASSWORD` must be created by the
-   maintainer (keystore generated in CI or locally with JDK 21). Without them,
-   CI produces debug-signed artifacts only.
+   maintainer. Without them, the release workflow now fails instead of publishing
+   unsigned APKs. The old v1.0.0 unsigned assets cannot be installed.
 4. **No on-device perf verification in CI.** Cold-start <350 ms, 60 fps with
    120+ apps, and idle RAM ≤80 MB require a physical Redmi 12 4G. CI enforces
    APK size + permission gates; perf gates must be validated manually on-device
