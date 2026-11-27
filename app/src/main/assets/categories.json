@@ -1,0 +1,308 @@
+{
+  "categories": [
+    {
+      "id": "ai_assistants",
+      "name": "AI & Assistants",
+      "keywords": [
+        "assistant",
+        "gemini",
+        "chatgpt",
+        "copilot",
+        "claude",
+        "meta ai",
+        "grok",
+        "perplexity",
+        "bard",
+        "alexa",
+        "siri",
+        "ai"
+      ],
+      "packages": [
+        "com.google.android.apps.bard",
+        "com.openai.chatgpt",
+        "com.microsoft.copilot",
+        "com.anthropic.claude",
+        "com.meta.ai",
+        "com.x.ai",
+        "com.perplexity.app",
+        "com.amazon.dee.app"
+      ]
+    },
+    {
+      "id": "social",
+      "name": "Social",
+      "keywords": [
+        "facebook",
+        "instagram",
+        "twitter",
+        "x",
+        "whatsapp",
+        "telegram",
+        "snapchat",
+        "tiktok",
+        "linkedin",
+        "discord",
+        "reddit",
+        "threads",
+        "signal",
+        "viber",
+        "wechat"
+      ],
+      "packages": [
+        "com.facebook.katana",
+        "com.instagram.android",
+        "com.twitter.android",
+        "com.whatsapp",
+        "org.telegram.messenger",
+        "com.snapchat.android",
+        "com.zhiliaoapp.musically",
+        "com.linkedin.android",
+        "com.discord",
+        "com.reddit.frontpage",
+        "com.signal"
+      ]
+    },
+    {
+      "id": "messaging",
+      "name": "Messaging",
+      "keywords": [
+        "message",
+        "sms",
+        "mms",
+        "messages",
+        "hangouts",
+        "duo",
+        "meet",
+        "zoom",
+        "teams",
+        "skype"
+      ],
+      "packages": [
+        "com.google.android.apps.messaging",
+        "com.samsung.android.messaging",
+        "com.microsoft.teams",
+        "com.skype.raider",
+        "com.google.android.apps.tachyon"
+      ]
+    },
+    {
+      "id": "media",
+      "name": "Media & Photos",
+      "keywords": [
+        "photo",
+        "camera",
+        "gallery",
+        "video",
+        "music",
+        "spotify",
+        "youtube",
+        "vlc",
+        "mx player",
+        "photos",
+        "drive photos"
+      ],
+      "packages": [
+        "com.google.android.apps.photos",
+        "com.google.android.youtube",
+        "com.spotify.music",
+        "org.videolan.vlc",
+        "com.mxtech.videoplayer.ad",
+        "com.miui.gallery",
+        "com.android.camera"
+      ]
+    },
+    {
+      "id": "games",
+      "name": "Games",
+      "keywords": [
+        "game",
+        "play games",
+        "steam",
+        "pubg",
+        "bgmi",
+        "free fire",
+        "candy",
+        "chess",
+        "ludo"
+      ],
+      "packages": [
+        "com.google.android.play.games",
+        "com.tencent.ig",
+        "com.dts.freefireth",
+        "com.king.candycrushsaga"
+      ]
+    },
+    {
+      "id": "shopping",
+      "name": "Shopping",
+      "keywords": [
+        "amazon",
+        "flipkart",
+        "myntra",
+        "ebay",
+        "walmart",
+        "target",
+        "shop",
+        "cart",
+        "meesho",
+        "aliexpress",
+        "shein"
+      ],
+      "packages": [
+        "com.amazon.mShop.android.shopping",
+        "com.flipkart.android",
+        "com.myntra.android",
+        "com.ebay.mobile",
+        "com.alibaba.aliexpress"
+      ]
+    },
+    {
+      "id": "finance",
+      "name": "Finance & Banking",
+      "keywords": [
+        "bank",
+        "paytm",
+        "phonepe",
+        "gpay",
+        "upi",
+        "finance",
+        "money",
+        "wallet",
+        "crypto",
+        "trading",
+        "zerodha",
+        "groww"
+      ],
+      "packages": [
+        "com.paytm.recharge",
+        "com.phonepe.app",
+        "com.google.android.apps.nbu.paisa.user",
+        "com.zerodha.kite3",
+        "com.groww"
+      ]
+    },
+    {
+      "id": "productivity",
+      "name": "Productivity",
+      "keywords": [
+        "notes",
+        "keep",
+        "docs",
+        "sheets",
+        "slides",
+        "office",
+        "notion",
+        "todo",
+        "calendar",
+        "clock",
+        "calculator",
+        "files",
+        "drive"
+      ],
+      "packages": [
+        "com.google.android.apps.docs",
+        "com.google.android.apps.sheets",
+        "com.google.android.apps.slides",
+        "com.google.android.apps.tasks",
+        "com.google.android.keep",
+        "com.microsoft.office.word",
+        "com.microsoft.office.excel",
+        "com.notion"
+      ]
+    },
+    {
+      "id": "travel",
+      "name": "Travel & Maps",
+      "keywords": [
+        "maps",
+        "uber",
+        "ola",
+        "rapido",
+        "irctc",
+        "redbus",
+        "makemytrip",
+        "booking",
+        "airbnb",
+        "zomato",
+        "swiggy"
+      ],
+      "packages": [
+        "com.google.android.apps.maps",
+        "com.ubercab",
+        "com.rapido.passenger",
+        "com.makemytrip",
+        "com.zomato",
+        "com.swiggy.android"
+      ]
+    },
+    {
+      "id": "health",
+      "name": "Health & Fitness",
+      "keywords": [
+        "health",
+        "fitness",
+        "fit",
+        "gym",
+        "meditation",
+        "curefit",
+        "practo",
+        "1mg",
+        "pharmeasy"
+      ],
+      "packages": [
+        "com.google.android.apps.fitness",
+        "com.curefit.cult",
+        "com.practo"
+      ]
+    },
+    {
+      "id": "education",
+      "name": "Education",
+      "keywords": [
+        "learn",
+        "course",
+        "udemy",
+        "coursera",
+        "duolingo",
+        "byjus",
+        "unacademy",
+        "khan",
+        "school"
+      ],
+      "packages": [
+        "com.udemy.android",
+        "com.duolingo",
+        "com.coursera"
+      ]
+    },
+    {
+      "id": "tools",
+      "name": "Tools & Utilities",
+      "keywords": [
+        "tool",
+        "utility",
+        "file manager",
+        "cleaner",
+        "vpn",
+        "password",
+        "scanner",
+        "translate",
+        "recorder",
+        "compass",
+        "torch"
+      ],
+      "packages": [
+        "com.google.android.apps.translate",
+        "com.miui.filemanager",
+        "com.cleanmaster.mguard",
+        "com.google.android.apps.docs"
+      ]
+    },
+    {
+      "id": "others",
+      "name": "Others",
+      "keywords": [],
+      "packages": []
+    }
+  ]
+}

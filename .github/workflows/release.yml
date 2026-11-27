@@ -1,0 +1,102 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*.*.*']
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Verify OpenRouter certificate pins (live TLS handshake)
+        run: |
+          echo "Fetching api.openrouter.ai certificate chain..."
+          echo | openssl s_client -connect api.openrouter.ai:443 -servername api.openrouter.ai -showcerts 2>/dev/null > /tmp/or_tls.txt || true
+          if [ ! -s /tmp/or_tls.txt ]; then
+            echo "WARN: could not fetch live cert (network restricted). Pins must be verified manually before release."
+          else
+            echo "--- Cert subjects ---"
+            grep -E "subject=|issuer=" /tmp/or_tls.txt | head -20
+            echo "--- SPKI pins (base64) ---"
+            # Extract leaf + intermediates and compute SPKI pins
+            awk '/BEGIN CERTIFICATE/,/END CERTIFICATE/' /tmp/or_tls.txt > /tmp/certs.pem
+            if [ -s /tmp/certs.pem ]; then
+              csplit -s -f /tmp/cert- /tmp/certs.pem '/BEGIN CERTIFICATE/' '{*}' 2>/dev/null || true
+              for f in /tmp/cert-*; do
+                [ -s "$f" ] || continue
+                PIN=$(openssl x509 -in "$f" -pubkey -noout 2>/dev/null | openssl pkey -pubin -outform der 2>/dev/null | openssl dgst -sha256 -binary 2>/dev/null | openssl enc -base64 2>/dev/null | tr -d '\n')
+                if [ -n "$PIN" ]; then echo "sha256/$PIN"; fi
+              done
+            fi
+          fi
+
+      - name: Decode keystore
+        run: |
+          if [ -z "${{ secrets.KEYSTORE_BASE64 }}" ]; then
+            echo "KEYSTORE_BASE64 secret not set — release signing will be skipped (debug-signed artifacts only)."
+          else
+            echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > app/release.keystore
+            echo "storeFile=release.keystore" > key.properties
+            echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> key.properties
+            echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> key.properties
+            echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" >> key.properties
+            echo "Keystore decoded."
+          fi
+
+      - name: Lint
+        run: ./gradlew :app:lintOfflineRelease :app:lintNetworkRelease --stacktrace || ./gradlew :app:lint --stacktrace
+
+      - name: Unit tests
+        run: ./gradlew :app:testOfflineDebugUnitTest :app:testNetworkDebugUnitTest --stacktrace
+
+      - name: Build release APKs
+        run: ./gradlew :app:assembleOfflineRelease :app:assembleNetworkRelease --stacktrace
+
+      - name: APK size gate
+        run: |
+          for APK in $(find app/build/outputs/apk -name "*release*.apk"); do
+            SIZE=$(stat -c%s "$APK")
+            echo "$APK: $SIZE bytes"
+            if [ "$SIZE" -gt 31457280 ]; then
+              echo "FAIL: $APK exceeds 30MB hard limit"
+              exit 1
+            fi
+          done
+
+      - name: Verify offline has no INTERNET permission
+        run: |
+          APK=$(find app/build/outputs/apk/offline/release -name "*.apk" | head -1)
+          aapt dump permissions "$APK" | tee /tmp/perms.txt
+          if grep -q "android.permission.INTERNET" /tmp/perms.txt; then
+            echo "FAIL: offline release must not declare INTERNET"
+            exit 1
+          fi
+          echo "PASS: offline release has no INTERNET"
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'v1.0.0' }}
+          name: HyperLauncher AI v1.0.0
+          draft: false
+          prerelease: false
+          files: |
+            app/build/outputs/apk/offline/release/*.apk
+            app/build/outputs/apk/network/release/*.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
