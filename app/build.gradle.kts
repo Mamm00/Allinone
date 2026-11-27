@@ -79,8 +79,8 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    compilerOptions {
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+    kotlinOptions {
+        jvmTarget = "17"
     }
     buildFeatures {
         compose = true
@@ -123,9 +123,9 @@ dependencies {
     implementation(libs.datastore.preferences)
     implementation(libs.kotlinx.serialization.json)
 
-    // Network flavor only
-    networkImplementation(libs.okhttp)
-    networkImplementation(libs.okhttp.logging)
+    // Network flavor only (use add() — flavor accessor unresolved in AGP 8.13 Kotlin DSL)
+    add("networkImplementation", libs.okhttp)
+    add("networkImplementation", libs.okhttp.logging)
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
