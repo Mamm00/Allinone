@@ -19,6 +19,20 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
+      - name: Derive release version and prevent replacing a published release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(python3 -c 'import re; print(re.search(r"versionName = \"([^\"]+)\"", open("app/build.gradle.kts").read()).group(1))')
+          TAG="v$VERSION"
+          if [ "${{ github.ref_type }}" = tag ] && [ "${{ github.ref_name }}" != "$TAG" ]; then
+            echo '::error::Release tag does not match the APK version'; exit 1
+          fi
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "::error::$TAG already exists; increase versionName/versionCode instead of replacing it"; exit 1
+          fi
+          echo "RELEASE_TAG=$TAG" >> "$GITHUB_ENV"
+
       - name: Require and validate signing secrets
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
@@ -49,13 +63,15 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          mkdir -p baseline-release
-          gh release download v1.0.1 --pattern 'HyperLauncherAI-*-release.apk' --dir baseline-release
           export PATH="$ANDROID_HOME/build-tools/36.0.0:$PATH"
-          for flavor in offline network; do
-            report=$(apksigner verify --print-certs "baseline-release/HyperLauncherAI-$flavor-release.apk")
-            original=$(printf '%s\n' "$report" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
-            test "${original,,}" = "${EXPECTED_SIGNER_SHA256,,}" || { echo '::error::Signing key differs from v1.0.1; refusing incompatible update'; exit 1; }
+          for tag in v1.0.1 v1.1.0; do
+            mkdir -p "baseline-release/$tag"
+            gh release download "$tag" --pattern 'HyperLauncherAI-*-release.apk' --dir "baseline-release/$tag"
+            for flavor in offline network; do
+              report=$(apksigner verify --print-certs "baseline-release/$tag/HyperLauncherAI-$flavor-release.apk")
+              original=$(printf '%s\n' "$report" | sed -n 's/^Signer #1 certificate SHA-256 digest: //p')
+              test "${original,,}" = "${EXPECTED_SIGNER_SHA256,,}" || { echo "::error::Signing key differs from $tag; refusing incompatible update"; exit 1; }
+            done
           done
 
       - name: Lint
@@ -96,28 +112,28 @@ jobs:
         if: github.event_name == 'workflow_dispatch' || github.ref_type == 'tag' || github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'v1.1.0' }}
+          tag_name: ${{ env.RELEASE_TAG }}
           target_commitish: ${{ github.sha }}
-          name: HyperLauncher AI ${{ github.ref_type == 'tag' && github.ref_name || 'v1.1.0' }}
+          name: HyperLauncher AI ${{ env.RELEASE_TAG }}
           body: |
-            Smart categorized drawer, editable home/widget stacks, paged dock, smart search,
-            optional gestures, wallpaper-sampled glass, explicit-refresh feed and weather,
-            adaptive display/orientation layouts, Nova XML/native backup preview,
-            PIN-hidden apps, searchable preferences, fonts and icon packs.
+            White-theme and debugging update:
+            - White backgrounds across home, Settings, drawer, search, feed, vault and dialogs,
+              including system dark mode; white launch window and readable system-bar icons.
+            - Wallpaper-derived accents without dark/tinted page backgrounds; white-frosted glass.
+            - Ordered settings writes with error recovery; no truncated app whitelist.
+            - Stale Room updates no longer roll back newer home edits; corrupt layouts cannot
+              be replaced accidentally by default layouts.
+            - HOME intent handling, one-shot preference navigation, vault password masking and insets.
 
-            Both editions use the existing permanent signing identity. Signature, alignment,
-            permissions, v1.0.1 upgrade, HOME and launch/recreation checks run before publication.
-            Offline has no INTERNET permission. Network requests require explicit feature actions.
-            Google Play font downloads are separately disclosed, explicit brokered requests.
-
-            Limitations: Nova proprietary/binary backups are unsupported. Rebind Android widgets
-            and photo URI grants after restore; KWGT files require manual import. Hidden apps
-            are launcher filtering, not an Android app lock or encrypted vault. Glass samples
-            images selected/applied through this launcher, not arbitrary live-wallpaper pixels.
-            Physical Redmi/foldable/external-display QA and startup/frame/RAM profiling are
-            outstanding. OpenRouter certificate pinning is not configured (normal TLS applies).
-            See KNOWN_LIMITATIONS.md and docs/RELEASE_1.1.0.md for scope and remaining manual QA.
-            Download an APK or the APK ZIP, not GitHub's source ZIP. SHA256SUMS.txt covers both.
+            Both APKs retain the permanent signing identity. Signature, alignment, permissions,
+            v1.0.1/v1.1.0 upgrades and signed launch/HOME/recreation checks run before publication.
+            Automated white-theme regressions cover actual home/Settings/drawer/vault screens
+            in light and dark Android modes. See docs/DEBUG_WHITE_THEME.md for the audit scope.
+            Physical/OEM/foldable QA and startup/frame/RAM profiling remain outstanding.
+            Nova binary backups remain unsupported; imported widgets require rebinding.
+            Hidden apps are launcher filtering, not system-wide locking. Normal TLS applies;
+            OpenRouter certificate pins remain unconfigured.
+            Download an APK or APK ZIP, not GitHub's source ZIP. SHA256SUMS.txt covers both.
           draft: false
           prerelease: false
           fail_on_unmatched_files: true

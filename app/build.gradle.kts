@@ -21,8 +21,8 @@ android {
         applicationId = "com.hyperlauncher.ai"
         minSdk = 28
         targetSdk = 34
-        versionCode = 3
-        versionName = "1.1.0"
+        versionCode = 4
+        versionName = "1.1.1"
         buildConfigField("boolean", "ENABLE_IMPORT", (providers.gradleProperty("enableImport").orNull ?: "true"))
         buildConfigField("boolean", "ENABLE_FEED", (providers.gradleProperty("enableFeed").orNull ?: "true"))
         buildConfigField("boolean", "ENABLE_GLASS", (providers.gradleProperty("enableGlass").orNull ?: "true"))
@@ -147,4 +147,13 @@ dependencies {
     androidTestImplementation("androidx.compose.ui:ui-test-junit4")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
     debugImplementation(libs.androidx.compose.ui.tooling)
+}
+
+// Keep assertion causes visible in Actions annotations when artifact/log downloads
+// are unavailable; Gradle's default short output hides Robolectric bootstrap errors.
+tasks.withType<Test>().configureEach {
+    testLogging {
+        events("failed")
+        exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+    }
 }

@@ -42,7 +42,7 @@ fun WorkspacePreferencesDialog(layout: WorkspaceLayout,onSave: (WorkspaceLayout)
                 Slider(number("blur",16f,0f,50f),{onSave(layout.option("blur",it.toString()))},valueRange=0f..50f)
                 Text("Effect intensity")
                 Slider(number("glassIntensity",.4f,0f,1f),{onSave(layout.option("glassIntensity",it.toString()))})
-                Text("Dark overlay opacity")
+                Text("White frost intensity")
                 Slider(number("overlay",.2f,0f,.85f),{onSave(layout.option("overlay",it.toString()))},valueRange=0f.. .85f)
             }
             PreferenceGroup(query,R.string.pref_gestures) {

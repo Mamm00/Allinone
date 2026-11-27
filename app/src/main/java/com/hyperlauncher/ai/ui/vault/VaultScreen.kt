@@ -18,6 +18,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -37,7 +38,11 @@ fun VaultScreen(viewModel: VaultViewModel, onBack: () -> Unit) {
     var noteTitle by remember { mutableStateOf("") }
     var noteBody by remember { mutableStateOf("") }
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
+    LaunchedEffect(state.isUnlocked) {
+        passphrase="";confirm=""
+        if(!state.isUnlocked) {noteTitle="";noteBody=""}
+    }
+    Column(modifier = Modifier.fillMaxSize().systemBarsPadding().imePadding().padding(16.dp)) {
         Row(modifier = Modifier.fillMaxWidth()) {
             OutlinedButton(onClick = onBack) { Text("Back") }
             Spacer(modifier = Modifier.padding(8.dp))
@@ -55,6 +60,7 @@ fun VaultScreen(viewModel: VaultViewModel, onBack: () -> Unit) {
                 onValueChange = { passphrase = it },
                 label = { Text(stringResource(R.string.vault_passphrase_hint)) },
                 singleLine = true,
+                visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
                 modifier = Modifier.fillMaxWidth()
             )
             OutlinedTextField(
@@ -62,6 +68,7 @@ fun VaultScreen(viewModel: VaultViewModel, onBack: () -> Unit) {
                 onValueChange = { confirm = it },
                 label = { Text(stringResource(R.string.vault_passphrase_confirm)) },
                 singleLine = true,
+                visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
                 modifier = Modifier.fillMaxWidth()
             )
             Button(
@@ -77,6 +84,7 @@ fun VaultScreen(viewModel: VaultViewModel, onBack: () -> Unit) {
                 onValueChange = { passphrase = it },
                 label = { Text(stringResource(R.string.vault_passphrase_hint)) },
                 singleLine = true,
+                visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
                 modifier = Modifier.fillMaxWidth()
             )
             Button(

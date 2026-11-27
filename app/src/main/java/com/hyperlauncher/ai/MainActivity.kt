@@ -1,5 +1,9 @@
 package com.hyperlauncher.ai
 
+import android.content.Intent
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.key
+import kotlinx.coroutines.flow.MutableStateFlow
 import android.os.Bundle
 import android.os.SystemClock
 import androidx.activity.compose.BackHandler
@@ -38,6 +42,12 @@ private enum class Destination { HOME, LAUNCHER, SETTINGS, VAULT }
 
 class MainActivity : ComponentActivity() {
 
+    private val homeRequests=MutableStateFlow(0)
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        if(intent.action==Intent.ACTION_MAIN && intent.hasCategory(Intent.CATEGORY_HOME)) homeRequests.value++
+    }
+
     private val startTimeMs = SystemClock.elapsedRealtime()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -45,19 +55,27 @@ class MainActivity : ComponentActivity() {
         val app = application as HyperLauncherApp
         val container = app.container
 
-        // Cold-start perf gate: log only in debug builds (no telemetry).
+        // Activity initialization timing only, NOT time-to-first-frame/startup profiling.
         if (BuildConfig.DEBUG) {
             val elapsed = PerformanceMonitor.measureColdStart(startTimeMs)
-            android.util.Log.d("HyperLauncher", "Cold start: ${elapsed}ms")
+            android.util.Log.d("HyperLauncher", "Activity initialization: ${elapsed}ms (not first-frame latency)")
         }
 
         androidx.core.view.WindowCompat.setDecorFitsSystemWindows(window,false)
+        androidx.core.view.WindowCompat.getInsetsController(window,window.decorView).apply {
+            isAppearanceLightStatusBars=true
+            isAppearanceLightNavigationBars=true
+        }
         setContent {
             val appearance by container.settingsRepository.appearance.collectAsState(emptyMap())
             val drawerPreferences by container.settingsRepository.drawerPreferences.collectAsState(DrawerPreferences())
             HyperLauncherAITheme(ambient = drawerPreferences.ambient,appearance=appearance) {
                 var preferencesRequest by remember {mutableStateOf(0)}
                 var destination by rememberSaveable { mutableStateOf(Destination.HOME) }
+                val homeRequest by homeRequests.collectAsState()
+                LaunchedEffect(homeRequest) {
+                    if(homeRequest>0) {preferencesRequest=0;destination=Destination.HOME}
+                }
 
                 val launcherViewModel: LauncherViewModel = viewModel(
                     factory = object : ViewModelProvider.Factory {
@@ -113,9 +131,10 @@ class MainActivity : ComponentActivity() {
 
                 BackHandler(enabled = destination != Destination.HOME) { destination = Destination.HOME }
                 when (destination) {
-                    Destination.HOME -> WorkspaceScreen(workspaceViewModel, launcherState.allApps,
+                    Destination.HOME -> key(homeRequest) {WorkspaceScreen(workspaceViewModel, launcherState.allApps,
                         onDrawer = { launcherViewModel.load(); destination = Destination.LAUNCHER },
-                        onSettings = { destination = Destination.SETTINGS }, onLaunch = launcherViewModel::onAppLaunched,preferencesRequest=preferencesRequest)
+                        onSettings = { destination = Destination.SETTINGS }, onLaunch = launcherViewModel::onAppLaunched,preferencesRequest=preferencesRequest,
+                        onPreferencesConsumed={preferencesRequest=0})}
                     Destination.LAUNCHER -> {
                         LauncherScreen(
                             viewModel = launcherViewModel,

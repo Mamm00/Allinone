@@ -33,6 +33,13 @@ OpenRouter uses normal TLS; certificate pins are **not configured**. Disclosed
 Google Play font downloads are brokered by Play Services (also in the offline
 edition) only when you tap Download. Built-in fonts require no request.
 
+## White-theme debug update (1.1.1)
+
+The app stays white/light in Android light **and** dark modes. Wallpaper colors
+change accents only; home cards, Settings, vault, feed, search and dialogs retain
+light surfaces. The launch window/system bars also use light styling.
+See [debug audit and regression coverage](docs/DEBUG_WHITE_THEME.md).
+
 ## Features
 
 - **Core launcher**: single-activity Compose / Material 3, MVVM + Repository,
@@ -85,8 +92,8 @@ Requires JDK 21 + Android SDK. All compilation runs in GitHub Actions CI
 by Git and removed from the runner after the job. Missing or invalid signing
 credentials fail the release; there is no unsigned fallback.
 
-Pushes to `main` and manual Release runs publish version **v1.1.0**; version tags
-use their tag name. Both APKs must pass signature checks against the original
+Pushes to `main` and manual Release runs publish the version declared in `app/build.gradle.kts` (currently **v1.1.1**); version tags
+must match that version. Already-published releases are never overwritten. Both APKs must pass signature checks against the original
 v1.0.1 signing identity, alignment/permission checks, upgrade installation and
 signed HOME/launch/recreation on an Android 14 emulator. This is not physical Redmi
 QA or performance profiling. An APK ZIP and SHA256SUMS.txt are included.
