@@ -14,7 +14,7 @@ class NetworkModule private constructor(val openRouterService: OpenRouterService
     fun enforceLockdown() {
         try {
             val cm = contextRef?.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
-            cm?.setProcessDefaultNetwork(null)
+            cm?.bindProcessToNetwork(null)
         } catch (_: Exception) {
             // Best-effort: the DNS + interceptor firewall still applies.
         }

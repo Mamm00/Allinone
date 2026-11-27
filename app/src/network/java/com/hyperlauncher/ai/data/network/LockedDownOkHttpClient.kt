@@ -29,11 +29,13 @@ object LockedDownOkHttpClient {
         // Populated by CI pin-verification; see DEBUG_LOG.md.
     )
 
-    private val lockedDns = Dns { hostname ->
-        if (hostname != ALLOWED_HOST) {
-            throw java.net.UnknownHostException("Blocked host: $hostname")
+    private val lockedDns = object : Dns {
+        override fun lookup(hostname: String): List<InetAddress> {
+            if (hostname != ALLOWED_HOST) {
+                throw java.net.UnknownHostException("Blocked host: $hostname")
+            }
+            return Dns.SYSTEM.lookup(hostname)
         }
-        Dns.SYSTEM.lookup(hostname)
     }
 
     private val firewallInterceptor = Interceptor { chain ->
