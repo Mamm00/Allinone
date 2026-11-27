@@ -9,14 +9,6 @@ import com.hyperlauncher.ai.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import android.appwidget.AppWidgetHost
-import android.app.WallpaperManager
-import android.graphics.BitmapFactory
-import android.graphics.Bitmap
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import com.hyperlauncher.ai.BuildConfig
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import android.appwidget.AppWidgetHostView
 import android.appwidget.AppWidgetManager
 import android.content.*
