@@ -26,8 +26,9 @@ class VaultHelper(context: Context) {
         if (passphrase.length < MIN_PASSPHRASE_LENGTH) return false
         return try {
             close()
-            helper = VaultOpenHelper(appContext, passphrase)
-            db = helper!!.writableDatabase
+            SQLiteDatabase.loadLibs(appContext)
+            helper = VaultOpenHelper(appContext)
+            db = helper!!.getWritableDatabase(passphrase)
             true
         } catch (e: Exception) {
             close()
@@ -121,9 +122,8 @@ data class VaultNote(
 )
 
 private class VaultOpenHelper(
-    context: Context,
-    private val passphrase: String
-) : SQLiteOpenHelper(context, "vault.db", passphrase.toCharArray(), null, 1) {
+    context: Context
+) : SQLiteOpenHelper(context, "vault.db", null, null, 1) {
 
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
