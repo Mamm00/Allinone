@@ -76,7 +76,8 @@ Requires JDK 21 + Android SDK. All compilation runs in GitHub Actions CI
 by Git and removed from the runner after the job. Missing or invalid signing
 credentials fail the release; there is no unsigned fallback.
 
-Pushes to `main` build verified signed artifacts. Version tags publish releases;
+Pushes to `main` build and publish the verified signing-fix release `v1.0.1`.
+Version tags publish releases under their tag name;
 **Actions → Release → Run workflow** publishes the signing-fix release `v1.0.1`.
 Before distribution, both APKs must pass `apksigner` verification against the
 keystore certificate, alignment, permission and size checks, and installation
